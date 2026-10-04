@@ -1,0 +1,27 @@
+[package]
+name = "omnicaller_server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
+anyhow = "1.0"
+sea-orm = { version = "1.1", features = ["sqlx-postgres", "runtime-tokio-native-tls", "macros", "with-uuid"] }
+uuid = { version = "1.11", features = ["v7", "serde"] }
+argon2 = "0.5"
+sea-orm-migration = { version = "1.1", features = ["sqlx-postgres", "runtime-tokio-native-tls"] }
+async-trait = "0.1"
+log = "0.4"
+jsonwebtoken = "9.3"
+validator = { version = "0.18", features = ["derive"] }
+regex = "1.11"
+lazy_static = "1.5"
+chrono = "0.4"
