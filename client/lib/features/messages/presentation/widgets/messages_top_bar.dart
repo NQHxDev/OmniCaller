@@ -9,6 +9,7 @@ enum MessagesMenuAction {
 class MessagesTopBar extends StatelessWidget implements PreferredSizeWidget {
   final TextEditingController? searchController;
   final ValueChanged<String>? onSearchChanged;
+  final VoidCallback? onClearSearch;
   final VoidCallback? onAddFriend;
   final VoidCallback? onCreateGroup;
 
@@ -16,6 +17,7 @@ class MessagesTopBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     this.searchController,
     this.onSearchChanged,
+    this.onClearSearch,
     this.onAddFriend,
     this.onCreateGroup,
   });
@@ -77,6 +79,26 @@ class MessagesTopBar extends StatelessWidget implements PreferredSizeWidget {
                         ),
                       ),
                     ),
+                    if (searchController != null)
+                      ListenableBuilder(
+                        listenable: searchController!,
+                        builder: (context, _) {
+                          if (searchController!.text.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          return GestureDetector(
+                            onTap: onClearSearch,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 4.0),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 18.0,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                   ],
                 ),
               ),

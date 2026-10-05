@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import '../../../../core/auth/auth_scope.dart';
+import '../../../../core/theme/theme_scope.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -32,6 +33,8 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final themeController = ThemeScope.of(context);
+    final isDarkMode = themeController.isDarkMode;
 
     return Scaffold(
       appBar: AppBar(
@@ -42,6 +45,35 @@ class SettingsPage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 12),
           children: [
+            // Dark / Light Theme Toggle Switch
+            SwitchListTile.adaptive(
+              secondary: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withAlpha(120),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: HugeIcon(
+                  icon: HugeIcons.strokeRoundedMoon02,
+                  color: theme.colorScheme.primary,
+                  size: 20.0,
+                ),
+              ),
+              title: const Text(
+                'Giao diện tối',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              value: isDarkMode,
+              onChanged: (value) {
+                themeController.toggleTheme(value);
+              },
+            ),
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            // Logout Option
             ListTile(
               leading: Container(
                 width: 36,

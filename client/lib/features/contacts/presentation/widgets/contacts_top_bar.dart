@@ -4,15 +4,19 @@ import 'package:hugeicons/hugeicons.dart';
 class ContactsTopBar extends StatelessWidget implements PreferredSizeWidget {
   final TextEditingController? searchController;
   final ValueChanged<String>? onSearchChanged;
+  final VoidCallback? onClearSearch;
   final VoidCallback? onGroupManagementPressed;
   final VoidCallback? onFriendRequestsPressed;
+  final int pendingRequestsCount;
 
   const ContactsTopBar({
     super.key,
     this.searchController,
     this.onSearchChanged,
+    this.onClearSearch,
     this.onGroupManagementPressed,
     this.onFriendRequestsPressed,
+    this.pendingRequestsCount = 0,
   });
 
   @override
@@ -72,6 +76,26 @@ class ContactsTopBar extends StatelessWidget implements PreferredSizeWidget {
                         ),
                       ),
                     ),
+                    if (searchController != null)
+                      ListenableBuilder(
+                        listenable: searchController!,
+                        builder: (context, _) {
+                          if (searchController!.text.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          return GestureDetector(
+                            onTap: onClearSearch,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 4.0),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 18.0,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                   ],
                 ),
               ),
@@ -105,7 +129,7 @@ class ContactsTopBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 8),
 
-            // Friend Requests Button
+            // Friend Requests Button with optional Badge
             Tooltip(
               message: 'Lời mời kết bạn',
               child: Material(
@@ -113,19 +137,51 @@ class ContactsTopBar extends StatelessWidget implements PreferredSizeWidget {
                 child: InkWell(
                   onTap: onFriendRequestsPressed,
                   borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: searchBgColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  child: Stack(
                     alignment: Alignment.center,
-                    child: HugeIcon(
-                      icon: HugeIcons.strokeRoundedMailAdd01,
-                      color: theme.colorScheme.primary,
-                      size: 20.0,
-                    ),
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: searchBgColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: HugeIcon(
+                          icon: HugeIcons.strokeRoundedMailAdd01,
+                          color: theme.colorScheme.primary,
+                          size: 20.0,
+                        ),
+                      ),
+                      if (pendingRequestsCount > 0)
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.error,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              pendingRequestsCount > 99
+                                  ? '99+'
+                                  : '$pendingRequestsCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),

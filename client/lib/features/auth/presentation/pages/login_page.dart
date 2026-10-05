@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import '../../../../core/auth/auth_scope.dart';
+import '../../../../core/network/api_exception.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 import 'register_page.dart';
@@ -26,6 +27,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _handleLogin() async {
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -38,6 +40,26 @@ class _LoginPageState extends State<LoginPage> {
         username: _usernameController.text.trim(),
         password: _passwordController.text,
       );
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đăng nhập không thành công: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -110,6 +132,9 @@ class _LoginPageState extends State<LoginPage> {
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Vui lòng nhập tên đăng nhập';
+                      }
+                      if (value.trim().length < 6) {
+                        return 'Tên đăng nhập phải có ít nhất 6 ký tự';
                       }
                       return null;
                     },

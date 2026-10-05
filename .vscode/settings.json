@@ -28,5 +28,6 @@
       "**/target/**": true,
       "**/node_modules/**": true
    },
-   "java.compile.nullAnalysis.mode": "automatic"
+   "java.compile.nullAnalysis.mode": "automatic",
+   "cSpell.words": ["ILIKE"]
 }
