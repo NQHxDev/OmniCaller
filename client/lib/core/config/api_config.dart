@@ -36,6 +36,12 @@ class ApiConfig {
     return 'http://$host:$port';
   }
 
+  static String wsUrl(String token) {
+    final httpBase = baseUrl;
+    final wsBase = httpBase.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://');
+    return '$wsBase/ws?token=$token';
+  }
+
   static const Duration timeout = Duration(seconds: 15);
 
   // Auth endpoints
@@ -58,6 +64,12 @@ class ApiConfig {
   static String cancelFriendRequestEndpoint(String requestId) => '/api/friends/requests/$requestId/cancel';
   static String unfriendEndpoint(String friendId) => '/api/friends/$friendId';
   static String friendshipStatusEndpoint(String userId) => '/api/friends/status/$userId';
+
+  // Chat & Message endpoints
+  static const String conversationsEndpoint = '/api/conversations';
+  static const String directConversationEndpoint = '/api/conversations/direct';
+  static String conversationMessagesEndpoint(String conversationId) => '/api/conversations/$conversationId/messages';
+  static const String sendMessageEndpoint = '/api/messages';
 
   static const String healthEndpoint = '/health';
 }

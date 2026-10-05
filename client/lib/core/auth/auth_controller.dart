@@ -1,3 +1,4 @@
+import '../../features/chat/data/services/chat_websocket_service.dart';
 import 'package:flutter/foundation.dart';
 import '../../features/auth/data/services/auth_api_service.dart';
 import '../network/api_client.dart';
@@ -232,6 +233,10 @@ class AuthController extends ChangeNotifier {
         // Continue clearing local data even if network logout fails
       }
     }
+
+    try {
+      ChatWebSocketService().disconnect();
+    } catch (_) {}
 
     _status = AuthStatus.unauthenticated;
     _currentUser = null;

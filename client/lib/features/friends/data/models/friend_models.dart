@@ -63,6 +63,15 @@ class FriendUser {
     this.isNewFriend,
   });
 
+  DateTime get timestamp {
+    final dateStr = respondedAt ?? createdAt ?? requestedAt;
+    if (dateStr != null && dateStr.isNotEmpty) {
+      final dt = DateTime.tryParse(dateStr);
+      if (dt != null) return dt.toLocal();
+    }
+    return DateTime.now();
+  }
+
   bool get isNew {
     if (isNewFriend != null) return isNewFriend!;
     final dateStr = respondedAt ?? createdAt ?? requestedAt;

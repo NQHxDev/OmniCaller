@@ -12,6 +12,7 @@ class UserProfilePage extends StatefulWidget {
   final String username;
   final String? initialDisplayName;
   final String? initialUserId;
+  final bool openedFromChat;
   final IUserSearchApiService? userApiService;
   final IFriendApiService? friendApiService;
 
@@ -20,6 +21,7 @@ class UserProfilePage extends StatefulWidget {
     required this.username,
     this.initialDisplayName,
     this.initialUserId,
+    this.openedFromChat = false,
     this.userApiService,
     this.friendApiService,
   });
@@ -65,8 +67,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
     });
 
     try {
-      final auth = AuthScope.of(context);
-      final token = auth.accessToken;
+      final auth = AuthScope.maybeOf(context);
+      final token = auth?.accessToken;
       if (token == null || token.isEmpty) {
         throw Exception('Chưa đăng nhập hoặc phiên làm việc đã hết hạn');
       }
@@ -79,8 +81,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
       FriendshipStatus status = FriendshipStatus.none;
       String? reqId;
 
-      final currentUserId = auth.currentUser?.id ?? '';
-      final currentUsername = auth.currentUser?.username ?? '';
+      final currentUserId = auth?.currentUser?.id ?? '';
+      final currentUsername = auth?.currentUser?.username ?? '';
 
       if (profile.userId.isNotEmpty && !_isSelf(currentUserId, currentUsername)) {
         try {
@@ -118,7 +120,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   Future<void> _onAddFriend() async {
     if (_profile == null || _isActionLoading) return;
-    final token = AuthScope.of(context).accessToken;
+    final token = AuthScope.maybeOf(context)?.accessToken;
     if (token == null) return;
 
     setState(() => _isActionLoading = true);
@@ -151,7 +153,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   Future<void> _onCancelRequest() async {
     if (_isActionLoading) return;
-    final token = AuthScope.of(context).accessToken;
+    final token = AuthScope.maybeOf(context)?.accessToken;
     if (token == null) return;
 
     setState(() => _isActionLoading = true);
@@ -185,7 +187,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   Future<void> _onAcceptRequest() async {
     if (_isActionLoading) return;
-    final token = AuthScope.of(context).accessToken;
+    final token = AuthScope.maybeOf(context)?.accessToken;
     if (token == null) return;
 
     setState(() => _isActionLoading = true);
@@ -218,7 +220,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   Future<void> _onRejectRequest() async {
     if (_isActionLoading) return;
-    final token = AuthScope.of(context).accessToken;
+    final token = AuthScope.maybeOf(context)?.accessToken;
     if (token == null) return;
 
     setState(() => _isActionLoading = true);
@@ -275,7 +277,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
     if (confirm != true || !mounted) return;
 
-    final token = AuthScope.of(context).accessToken;
+    final token = AuthScope.maybeOf(context)?.accessToken;
     if (token == null) return;
 
     setState(() => _isActionLoading = true);
@@ -306,8 +308,13 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   void _onOpenChat() {
+    if (widget.openedFromChat) {
+      Navigator.of(context).pop();
+      return;
+    }
+
     if (_profile == null) return;
-    Navigator.of(context).push(
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => ChatPage(
           userId: _profile!.userId,
@@ -321,10 +328,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final auth = AuthScope.of(context);
+    final auth = AuthScope.maybeOf(context);
     final isSelf = _isSelf(
-      auth.currentUser?.id ?? '',
-      auth.currentUser?.username ?? '',
+      auth?.currentUser?.id ?? '',
+      auth?.currentUser?.username ?? '',
     );
 
     return Scaffold(

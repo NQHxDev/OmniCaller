@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 
@@ -6,6 +7,8 @@ class ChatInputBar extends StatefulWidget {
   final ValueChanged<String>? onSendMessage;
   final VoidCallback? onSendImage;
   final VoidCallback? onEmojiPressed;
+  final VoidCallback? onTyping;
+  final VoidCallback? onTypingStopped;
 
   const ChatInputBar({
     super.key,
@@ -13,6 +16,8 @@ class ChatInputBar extends StatefulWidget {
     this.onSendMessage,
     this.onSendImage,
     this.onEmojiPressed,
+    this.onTyping,
+    this.onTypingStopped,
   });
 
   @override
@@ -23,6 +28,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
   late final TextEditingController _textController;
   late final bool _isInternalController;
   bool _hasText = false;
+  Timer? _typingDebounce;
+  bool _isTypingActive = false;
 
   @override
   void initState() {
@@ -40,16 +47,36 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   void _handleTextChange() {
-    final hasText = _textController.text.trim().isNotEmpty;
+    final text = _textController.text;
+    final hasText = text.trim().isNotEmpty;
     if (hasText != _hasText) {
       setState(() {
         _hasText = hasText;
       });
     }
+
+    if (hasText) {
+      if (!_isTypingActive) {
+        _isTypingActive = true;
+        widget.onTyping?.call();
+      }
+      _typingDebounce?.cancel();
+      _typingDebounce = Timer(const Duration(milliseconds: 2500), () {
+        _isTypingActive = false;
+        widget.onTypingStopped?.call();
+      });
+    } else {
+      if (_isTypingActive) {
+        _isTypingActive = false;
+        _typingDebounce?.cancel();
+        widget.onTypingStopped?.call();
+      }
+    }
   }
 
   @override
   void dispose() {
+    _typingDebounce?.cancel();
     _textController.removeListener(_handleTextChange);
     if (_isInternalController) {
       _textController.dispose();
@@ -60,6 +87,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
   void _handleSend() {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
+    _typingDebounce?.cancel();
+    _isTypingActive = false;
+    widget.onTypingStopped?.call();
     widget.onSendMessage?.call(text);
     _textController.clear();
   }

@@ -14,6 +14,11 @@ impl UserRepository {
       Self { db }
    }
 
+   /// Get database connection
+   pub fn db(&self) -> &DatabaseConnection {
+      &self.db
+   }
+
    /// Create a new user
    pub async fn create(&self, account_id: &Uuid, display_name: &str) -> Result<user::Model> {
       let now = chrono::Utc::now().into();
@@ -52,23 +57,22 @@ impl UserRepository {
       Ok(user)
    }
 
-   /// Find user by ID with associated account
+   /// Find user by user ID with account info
    pub async fn find_by_user_id_with_account(
       &self,
-      id: &Uuid,
+      user_id: &Uuid,
    ) -> Result<Option<(user::Model, account::Model)>> {
-      let user = User::find_by_id(*id)
+      if let Some(user) = User::find_by_id(*user_id)
          .filter(user::Column::DeletedAt.is_null())
          .one(&self.db)
-         .await?;
-
-      if let Some(user) = user {
-         let account = Account::find_by_id(user.account_id)
+         .await?
+      {
+         if let Some(account) = Account::find()
+            .filter(account::Column::Id.eq(user.account_id))
             .filter(account::Column::DeletedAt.is_null())
             .one(&self.db)
-            .await?;
-
-         if let Some(account) = account {
+            .await?
+         {
             return Ok(Some((user, account)));
          }
       }

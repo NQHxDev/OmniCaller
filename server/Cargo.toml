@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = "0.7"
+axum = { version = "0.7", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
@@ -25,3 +25,6 @@ validator = { version = "0.18", features = ["derive"] }
 regex = "1.11"
 lazy_static = "1.5"
 chrono = "0.4"
+tokio-stream = "0.1"
+futures = "0.3"
+dashmap = "6.1"

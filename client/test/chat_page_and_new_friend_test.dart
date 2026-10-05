@@ -1,10 +1,17 @@
+import 'dart:async';
 import 'package:client/core/auth/auth_controller.dart';
 import 'package:client/core/auth/auth_scope.dart';
 import 'package:client/core/storage/token_storage.dart';
 import 'package:client/features/auth/data/models/auth_models.dart';
 import 'package:client/features/auth/data/services/auth_api_service.dart';
+import 'package:client/features/chat/data/models/chat_models.dart';
+import 'package:client/features/chat/data/models/ws_models.dart';
+import 'package:client/features/chat/data/services/chat_api_service.dart';
+import 'package:client/features/chat/data/services/chat_websocket_service.dart';
+import 'package:client/features/chat/presentation/controllers/conversations_controller.dart';
 import 'package:client/features/chat/presentation/pages/chat_page.dart';
 import 'package:client/features/chat/presentation/widgets/chat_input_bar.dart';
+import 'package:client/features/chat/presentation/widgets/chat_message_bubble.dart';
 import 'package:client/features/friends/data/models/friend_models.dart';
 import 'package:client/features/friends/data/services/friend_api_service.dart';
 import 'package:client/features/friends/presentation/controllers/friends_controller.dart';
@@ -66,7 +73,7 @@ class StubFriendApiService implements IFriendApiService {
   Future<void> cancelFriendRequest({required String requestId, required String token}) async {}
   @override
   Future<FriendshipStatusData> getFriendshipStatus({required String userId, required String token}) async =>
-      const FriendshipStatusData(status: FriendshipStatus.none);
+      const FriendshipStatusData(status: FriendshipStatus.accepted);
   @override
   Future<List<FriendRequestItem>> getReceivedFriendRequests({
     required String token,
@@ -105,6 +112,78 @@ class StubUserSearchApiService implements IUserSearchApiService {
   }
 }
 
+class StubChatApiService implements IChatApiService {
+  List<ConversationModel> conversationsToReturn = [];
+  List<MessageModel> messagesToReturn = [];
+
+  @override
+  Future<ConversationModel> createOrGetDirectConversation({required String friendUsername, required String token}) async {
+    return ConversationModel(
+      id: 'conv_123',
+      type: ConversationType.direct,
+      otherUser: ConversationUser(userId: 'u_123', username: friendUsername, displayName: 'Alice Wonderland'),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<List<ConversationModel>> getConversations({required String token}) async => conversationsToReturn;
+
+  @override
+  Future<MessagesResponse> getMessages({required String conversationId, required String token, String? cursor, int limit = 30}) async {
+    return MessagesResponse(messages: messagesToReturn, nextCursor: null, hasMore: false);
+  }
+
+  @override
+  Future<MessageModel> sendMessage({required String conversationId, required String content, String? replyToMessageId, required String token}) async {
+    return MessageModel(
+      id: 'm_sent_1',
+      conversationId: conversationId,
+      senderId: 'u_me',
+      senderUsername: 'me',
+      senderDisplayName: 'Me',
+      content: content,
+      status: MessageStatus.sent,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+}
+
+class StubChatWebSocketService implements IChatWebSocketService {
+  final StreamController<WsServerEvent> _streamController = StreamController<WsServerEvent>.broadcast();
+  bool connected = false;
+
+  @override
+  Stream<WsServerEvent> get events => _streamController.stream;
+
+  @override
+  bool get isConnected => connected;
+
+  @override
+  Future<void> connect({required String token}) async {
+    connected = true;
+  }
+
+  @override
+  void disconnect() {
+    connected = false;
+  }
+
+  @override
+  void dispose() {
+    _streamController.close();
+  }
+
+  @override
+  void send(WsClientEvent event) {}
+
+  void emit(WsServerEvent event) {
+    _streamController.add(event);
+  }
+}
+
 void main() {
   late AuthController authController;
 
@@ -116,15 +195,24 @@ void main() {
     await authController.initialize();
   });
 
-  testWidgets('ChatPage renders recipient info in AppBar and navigates to UserProfilePage on tap', (WidgetTester tester) async {
+  testWidgets('ChatPage renders recipient info in AppBar and navigates to UserProfilePage on tap, tapping message pops back without loop', (WidgetTester tester) async {
+    final stubFriendService = StubFriendApiService();
+    final stubUserSearchService = StubUserSearchApiService();
+    final stubChatApiService = StubChatApiService();
+    final stubWsService = StubChatWebSocketService();
+
     await tester.pumpWidget(
       AuthScope(
         controller: authController,
-        child: const MaterialApp(
+        child: MaterialApp(
           home: ChatPage(
             userId: 'u_123',
             username: 'alice',
             displayName: 'Alice Wonderland',
+            userApiService: stubUserSearchService,
+            friendApiService: stubFriendService,
+            chatApiService: stubChatApiService,
+            wsService: stubWsService,
           ),
         ),
       ),
@@ -141,50 +229,71 @@ void main() {
 
     // Verify UserProfilePage is opened
     expect(find.byType(UserProfilePage), findsOneWidget);
+
+    // Tap "Nhắn tin" in UserProfilePage -> should pop back to existing ChatPage without pushing a new one
+    final sendMessageBtn = find.widgetWithText(FilledButton, 'Nhắn tin');
+    expect(sendMessageBtn, findsOneWidget);
+    await tester.tap(sendMessageBtn);
+    await tester.pumpAndSettle();
+
+    // Verify we are back on ChatPage
+    expect(find.byType(UserProfilePage), findsNothing);
+    expect(find.byType(ChatPage), findsOneWidget);
   });
 
-  testWidgets('ChatInputBar enters text and triggers onSendMessage callback', (WidgetTester tester) async {
-    String? sentMessage;
-    bool imageClicked = false;
-    bool emojiClicked = false;
+  testWidgets('ChatPage displays messages and sends a new message with bubble UI', (WidgetTester tester) async {
+    final stubChatApiService = StubChatApiService();
+    final stubWsService = StubChatWebSocketService();
+
+    stubChatApiService.messagesToReturn = [
+      MessageModel(
+        id: 'msg_1',
+        conversationId: 'conv_123',
+        senderId: 'u_123',
+        senderUsername: 'alice',
+        senderDisplayName: 'Alice Wonderland',
+        content: 'Chào bạn nhé!',
+        status: MessageStatus.read,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    ];
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ChatInputBar(
-            onSendMessage: (msg) => sentMessage = msg,
-            onSendImage: () => imageClicked = true,
-            onEmojiPressed: () => emojiClicked = true,
+      AuthScope(
+        controller: authController,
+        child: MaterialApp(
+          home: ChatPage(
+            conversationId: 'conv_123',
+            userId: 'u_123',
+            username: 'alice',
+            displayName: 'Alice Wonderland',
+            chatApiService: stubChatApiService,
+            wsService: stubWsService,
           ),
         ),
       ),
     );
 
-    // Test send image click
-    await tester.tap(find.byTooltip('Gửi ảnh'));
-    await tester.pump();
-    expect(imageClicked, isTrue);
+    await tester.pumpAndSettle();
 
-    // Test emoji click
-    await tester.tap(find.byTooltip('Thả icon / Emoji'));
-    await tester.pump();
-    expect(emojiClicked, isTrue);
+    // Verify initial message rendered in bubble
+    expect(find.text('Chào bạn nhé!'), findsOneWidget);
+    expect(find.byType(ChatMessageBubble), findsOneWidget);
 
-    // Enter text
-    await tester.enterText(find.byType(TextField), 'Hello World');
+    // Type a reply
+    await tester.enterText(find.byType(TextField), 'Chào Alice!');
     await tester.pump();
 
-    // Verify send button appears
-    expect(find.byTooltip('Gửi tin nhắn'), findsOneWidget);
-
-    // Tap send
+    // Tap send button
     await tester.tap(find.byTooltip('Gửi tin nhắn'));
     await tester.pump();
 
-    expect(sentMessage, equals('Hello World'));
+    // Verify both messages are in the UI
+    expect(find.text('Chào Alice!'), findsOneWidget);
   });
 
-  testWidgets('MessagesPage renders newly accepted friend with "Bạn mới" badge and navigates to ChatPage on tap', (WidgetTester tester) async {
+  testWidgets('MessagesPage renders active conversations and new friends', (WidgetTester tester) async {
     final stubFriendService = StubFriendApiService(
       friendsToReturn: [
         const FriendUser(
@@ -197,31 +306,56 @@ void main() {
       ],
     );
 
+    final stubChatApiService = StubChatApiService();
+    stubChatApiService.conversationsToReturn = [
+      ConversationModel(
+        id: 'conv_alice',
+        type: ConversationType.direct,
+        otherUser: const ConversationUser(userId: 'u_alice', username: 'alice', displayName: 'Alice'),
+        lastMessage: MessageModel(
+          id: 'm1',
+          conversationId: 'conv_alice',
+          senderId: 'u_alice',
+          senderUsername: 'alice',
+          senderDisplayName: 'Alice',
+          content: 'Gặp nhau nhé!',
+          status: MessageStatus.sent,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+        unreadCount: 2,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    ];
+
     final friendsController = FriendsController(friendService: stubFriendService);
+    final conversationsController = ConversationsController(
+      apiService: stubChatApiService,
+      wsService: StubChatWebSocketService(),
+    );
 
     await tester.pumpWidget(
       AuthScope(
         controller: authController,
         child: MaterialApp(
-          home: MessagesPage(friendsController: friendsController),
+          home: MessagesPage(
+            friendsController: friendsController,
+            conversationsController: conversationsController,
+          ),
         ),
       ),
     );
 
     await tester.pumpAndSettle();
 
-    // Verify Bob is displayed in messages list
+    // Active conversation
+    expect(find.text('Alice'), findsOneWidget);
+    expect(find.text('Alice: Gặp nhau nhé!'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget); // unread badge
+
+    // New friend
     expect(find.text('Bob The Builder'), findsOneWidget);
     expect(find.text('Bạn mới'), findsOneWidget);
-    expect(find.textContaining('Các bạn đã trở thành bạn bè'), findsOneWidget);
-
-    // Tap on Bob
-    await tester.tap(find.text('Bob The Builder'));
-    await tester.pumpAndSettle();
-
-    // Verify ChatPage is opened with Bob
-    expect(find.byType(ChatPage), findsOneWidget);
-    expect(find.text('@bob'), findsOneWidget);
-    expect(find.byType(ChatInputBar), findsOneWidget);
   });
 }
