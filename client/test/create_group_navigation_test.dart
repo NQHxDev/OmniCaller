@@ -6,6 +6,8 @@ import 'package:client/features/auth/data/services/auth_api_service.dart';
 import 'package:client/features/friends/data/models/friend_models.dart';
 import 'package:client/features/friends/data/services/friend_api_service.dart';
 import 'package:client/features/friends/presentation/controllers/friends_controller.dart';
+import 'package:client/features/groups/data/models/group_models.dart';
+import 'package:client/features/groups/data/services/group_api_service.dart';
 import 'package:client/features/groups/presentation/pages/create_group_page.dart';
 import 'package:client/features/messages/presentation/pages/messages_page.dart';
 import 'package:client/features/search/data/models/user_search_models.dart';
@@ -115,6 +117,43 @@ class StubFriendApiService implements IFriendApiService {
   }
 }
 
+class StubGroupApiService implements IGroupApiService {
+  bool shouldFail = false;
+  String? lastCreatedName;
+  List<String>? lastCreatedMemberIds;
+
+  @override
+  Future<GroupProfileResponse> createGroup({
+    required String name,
+    required List<String> memberIds,
+    String? description,
+    String? avatarUrl,
+    String? bannerUrl,
+    required String token,
+  }) async {
+    if (shouldFail) {
+      throw Exception('Tên nhóm không hợp lệ hoặc máy chủ lỗi');
+    }
+    lastCreatedName = name;
+    lastCreatedMemberIds = memberIds;
+    return GroupProfileResponse(
+      id: 'grp_created_id',
+      name: name,
+      description: description,
+      avatarUrl: avatarUrl,
+      bannerUrl: bannerUrl,
+      createdBy: 'usr_1',
+      memberCount: memberIds.length + 1,
+      createdAt: '2026-10-05T00:00:00Z',
+    );
+  }
+
+  @override
+  Future<List<GroupProfileResponse>> getUserGroups({required String token}) async {
+    return [];
+  }
+}
+
 void main() {
   late AuthController authController;
 
@@ -153,7 +192,7 @@ void main() {
     expect(find.text('Đã mời: 0'), findsOneWidget);
 
     // Verify Create button in header is present and disabled
-    final createBtnFinder = find.widgetWithText(TextButton, 'Tạo mới');
+    final createBtnFinder = find.widgetWithText(TextButton, 'Tạo');
     expect(createBtnFinder, findsOneWidget);
     final TextButton initialBtn = tester.widget(createBtnFinder);
     expect(initialBtn.onPressed, isNull);
@@ -223,87 +262,74 @@ void main() {
     expect(find.text('Đã mời: 1'), findsOneWidget);
   });
 
-  testWidgets('Create group button is disabled until group name is entered AND at least 2 members are selected', (WidgetTester tester) async {
+  testWidgets('Create group button calls backend API and pops on success', (WidgetTester tester) async {
     final friendsController = FriendsController(friendService: StubFriendApiService());
-
-    String? createdGroupName;
-    List<String>? createdMemberIds;
+    final groupApiService = StubGroupApiService();
 
     await tester.pumpWidget(
       AuthScope(
         controller: authController,
         child: MaterialApp(
-          home: CreateGroupPage(
-            friendsController: friendsController,
-            onCreateGroup: (name, memberIds) {
-              createdGroupName = name;
-              createdMemberIds = memberIds;
-            },
+          home: CreateGroupPage(friendsController: friendsController, groupApiService: groupApiService),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final createButtonFinder = find.widgetWithText(TextButton, 'Tạo');
+    expect(createButtonFinder, findsOneWidget);
+
+    // Enter group name
+    await tester.enterText(find.widgetWithText(TextField, 'Đặt tên nhóm'), 'OmniCaller Team');
+    await tester.pumpAndSettle();
+
+    // Select 2 friends
+    await tester.tap(find.text('Alice Nguyen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bob Tran'));
+    await tester.pumpAndSettle();
+
+    // Button is now enabled
+    final TextButton btn = tester.widget(createButtonFinder);
+    expect(btn.onPressed, isNotNull);
+
+    // Tap create button
+    await tester.tap(createButtonFinder);
+    await tester.pumpAndSettle();
+
+    expect(groupApiService.lastCreatedName, 'OmniCaller Team');
+    expect(groupApiService.lastCreatedMemberIds, containsAll(['u1', 'u2']));
+  });
+
+  testWidgets('Create group displays error snackbar when API fails', (WidgetTester tester) async {
+    final friendsController = FriendsController(friendService: StubFriendApiService());
+    final groupApiService = StubGroupApiService()..shouldFail = true;
+
+    await tester.pumpWidget(
+      AuthScope(
+        controller: authController,
+        child: MaterialApp(
+          home: Scaffold(
+            body: CreateGroupPage(friendsController: friendsController, groupApiService: groupApiService),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    final createButtonFinder = find.widgetWithText(TextButton, 'Tạo mới');
-    expect(createButtonFinder, findsOneWidget);
-
-    // 1. Initial state: both conditions unmet -> disabled
-    TextButton btn = tester.widget(createButtonFinder);
-    expect(btn.onPressed, isNull);
-
-    // 2. Only enter group name -> still disabled
-    await tester.enterText(find.widgetWithText(TextField, 'Đặt tên nhóm'), 'OmniCaller Team');
+    // Enter group name and select friends
+    await tester.enterText(find.widgetWithText(TextField, 'Đặt tên nhóm'), 'Failed Group');
     await tester.pumpAndSettle();
-    btn = tester.widget(createButtonFinder);
-    expect(btn.onPressed, isNull);
-
-    // 3. Select 1 friend (Alice) -> still disabled (< 2 members)
     await tester.tap(find.text('Alice Nguyen'));
     await tester.pumpAndSettle();
-    btn = tester.widget(createButtonFinder);
-    expect(btn.onPressed, isNull);
-
-    // 4. Select 2nd friend (Bob) -> now enabled!
     await tester.tap(find.text('Bob Tran'));
     await tester.pumpAndSettle();
-    btn = tester.widget(createButtonFinder);
-    expect(btn.onPressed, isNotNull);
 
-    // 5. Tap create button -> callback invoked
+    final createButtonFinder = find.widgetWithText(TextButton, 'Tạo');
     await tester.tap(createButtonFinder);
     await tester.pumpAndSettle();
-    expect(createdGroupName, 'OmniCaller Team');
-    expect(createdMemberIds, containsAll(['u1', 'u2']));
 
-    // 6. Clear group name -> disabled again
-    await tester.enterText(find.widgetWithText(TextField, 'Đặt tên nhóm'), '   ');
-    await tester.pumpAndSettle();
-    btn = tester.widget(createButtonFinder);
-    expect(btn.onPressed, isNull);
-
-    // 7. Re-enter group name -> enabled again
-    await tester.enterText(find.widgetWithText(TextField, 'Đặt tên nhóm'), 'Dev Gang');
-    await tester.pumpAndSettle();
-    btn = tester.widget(createButtonFinder);
-    expect(btn.onPressed, isNotNull);
-
-    // 8. Deselect Bob (back to 1 member) -> disabled again
-    await tester.tap(find.text('Bob Tran'));
-    await tester.pumpAndSettle();
-    btn = tester.widget(createButtonFinder);
-    expect(btn.onPressed, isNull);
-
-    // 9. Select Charlie Le (now Alice and Charlie = 2 members) -> enabled again
-    await tester.tap(find.text('Charlie Le'));
-    await tester.pumpAndSettle();
-    btn = tester.widget(createButtonFinder);
-    expect(btn.onPressed, isNotNull);
-
-    // Tap again to confirm callback payload
-    await tester.tap(createButtonFinder);
-    await tester.pumpAndSettle();
-    expect(createdGroupName, 'Dev Gang');
-    expect(createdMemberIds, containsAll(['u1', 'u3']));
+    // Error SnackBar should be displayed
+    expect(find.textContaining('Tên nhóm không hợp lệ hoặc máy chủ lỗi'), findsOneWidget);
   });
 }

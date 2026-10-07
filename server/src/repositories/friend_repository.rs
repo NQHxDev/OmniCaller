@@ -38,6 +38,12 @@ impl FriendRepository {
          .await
    }
 
+   // Check if two users are friends (active and accepted)
+   pub async fn are_friends(&self, user_id: &Uuid, friend_id: &Uuid) -> Result<bool, DbErr> {
+      let friendship = self.find_friendship(*user_id, *friend_id).await?;
+      Ok(friendship.map_or(false, |f| f.is_accepted()))
+   }
+
    // Check if any friendship row exists between two users (including soft deleted or rejected)
    pub async fn find_any_friendship(
       &self,

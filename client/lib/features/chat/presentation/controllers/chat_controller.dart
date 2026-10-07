@@ -38,16 +38,16 @@ class ChatController extends ChangeNotifier {
     String? token,
     IChatApiService? apiService,
     IChatWebSocketService? wsService,
-  })  : _conversationId = conversationId,
-        _friendUsername = friendUsername,
-        _friendDisplayName = friendDisplayName,
-        _friendUserId = friendUserId,
-        _currentUserId = currentUserId,
-        _currentUsername = currentUsername,
-        _token = token,
-        _apiService = apiService ?? ChatApiService(),
-        _wsService = wsService ?? ChatWebSocketService(),
-        _isCustomWsService = wsService != null {
+  }) : _conversationId = conversationId,
+       _friendUsername = friendUsername,
+       _friendDisplayName = friendDisplayName,
+       _friendUserId = friendUserId,
+       _currentUserId = currentUserId,
+       _currentUsername = currentUsername,
+       _token = token,
+       _apiService = apiService ?? ChatApiService(),
+       _wsService = wsService ?? ChatWebSocketService(),
+       _isCustomWsService = wsService != null {
     _initWsListener();
   }
 
@@ -93,7 +93,7 @@ class ChatController extends ChangeNotifier {
   }
 
   void _markUnreadMessagesAsRead() {
-    if (_token == null || _token!.isEmpty || !_wsService.isConnected) return;
+    if (_token == null || _token.isEmpty || !_wsService.isConnected) return;
     for (final m in _messages) {
       final isMine = m.isMine(_currentUserId ?? '', _currentUsername);
       if (!isMine && m.status != MessageStatus.read) {
@@ -117,9 +117,7 @@ class ChatController extends ChangeNotifier {
     final isFromSelf = incoming.isMine(_currentUserId ?? '', _currentUsername);
     int tempIdx = -1;
     if (isFromSelf) {
-      tempIdx = _messages.lastIndexWhere(
-        (m) => m.id.startsWith('temp_') && m.content == incoming.content,
-      );
+      tempIdx = _messages.lastIndexWhere((m) => m.id.startsWith('temp_') && m.content == incoming.content);
       if (tempIdx < 0) {
         tempIdx = _messages.lastIndexWhere((m) => m.id.startsWith('temp_'));
       }
@@ -135,7 +133,7 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
 
     // Mark as delivered/read (only if received from someone else)
-    if (!isFromSelf && _token != null && _token!.isNotEmpty) {
+    if (!isFromSelf && _token != null && _token.isNotEmpty) {
       _wsService.send(WsMessageDeliveredEvent(messageId: incoming.id));
       _wsService.send(WsMessageReadEvent(messageId: incoming.id));
     }
@@ -148,8 +146,7 @@ class ChatController extends ChangeNotifier {
       if (status == MessageStatus.read) {
         for (int i = idx + 1; i < _messages.length; i++) {
           final m = _messages[i];
-          if (m.isMine(_currentUserId ?? '', _currentUsername) &&
-              (m.status == MessageStatus.sent || m.status == MessageStatus.delivered)) {
+          if (m.isMine(_currentUserId ?? '', _currentUsername) && (m.status == MessageStatus.sent || m.status == MessageStatus.delivered)) {
             _messages[i] = m.copyWith(status: MessageStatus.read);
           }
         }
@@ -159,7 +156,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
-    if (_token == null || _token!.isEmpty) return;
+    if (_token == null || _token.isEmpty) return;
 
     _isLoading = true;
     _errorMessage = null;
@@ -168,27 +165,20 @@ class ChatController extends ChangeNotifier {
     try {
       // Connect WebSocket if not connected
       if (!_wsService.isConnected) {
-        await _wsService.connect(token: _token!);
+        await _wsService.connect(token: _token);
       }
 
       // If conversationId is unknown, resolve it via direct conversation API
       if (_conversationId == null || _conversationId!.isEmpty) {
-        if (_friendUsername != null && _friendUsername!.isNotEmpty) {
-          final conv = await _apiService.createOrGetDirectConversation(
-            friendUsername: _friendUsername!,
-            token: _token!,
-          );
+        if (_friendUsername != null && _friendUsername.isNotEmpty) {
+          final conv = await _apiService.createOrGetDirectConversation(friendUsername: _friendUsername, token: _token);
           _conversationId = conv.id;
         }
       }
 
       // Fetch initial messages
       if (_conversationId != null && _conversationId!.isNotEmpty) {
-        final res = await _apiService.getMessages(
-          conversationId: _conversationId!,
-          token: _token!,
-          limit: 30,
-        );
+        final res = await _apiService.getMessages(conversationId: _conversationId!, token: _token, limit: 30);
         _messages = res.messages;
         _nextCursor = res.nextCursor;
         _hasMore = res.hasMore;
@@ -210,12 +200,7 @@ class ChatController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final res = await _apiService.getMessages(
-        conversationId: _conversationId!,
-        token: _token!,
-        cursor: _nextCursor,
-        limit: 30,
-      );
+      final res = await _apiService.getMessages(conversationId: _conversationId!, token: _token, cursor: _nextCursor, limit: 30);
 
       _messages.addAll(res.messages);
       _nextCursor = res.nextCursor;
@@ -233,12 +218,9 @@ class ChatController extends ChangeNotifier {
 
     // Ensure conversation exists
     if (_conversationId == null || _conversationId!.isEmpty) {
-      if (_friendUsername != null && _friendUsername!.isNotEmpty) {
+      if (_friendUsername != null && _friendUsername.isNotEmpty) {
         try {
-          final conv = await _apiService.createOrGetDirectConversation(
-            friendUsername: _friendUsername!,
-            token: _token!,
-          );
+          final conv = await _apiService.createOrGetDirectConversation(friendUsername: _friendUsername, token: _token);
           _conversationId = conv.id;
         } catch (e) {
           _errorMessage = e.toString().replaceAll('ApiException: ', '').replaceAll('Exception: ', '');
@@ -271,10 +253,7 @@ class ChatController extends ChangeNotifier {
 
     // Send via WebSocket if connected, else via REST
     if (_wsService.isConnected) {
-      _wsService.send(WsSendMessageEvent(
-        conversationId: convId,
-        content: trimmed,
-      ));
+      _wsService.send(WsSendMessageEvent(conversationId: convId, content: trimmed));
       // Give optimistic message sent status
       final idx = _messages.indexWhere((m) => m.id == tempId);
       if (idx >= 0) {
@@ -284,11 +263,7 @@ class ChatController extends ChangeNotifier {
       return true;
     } else {
       try {
-        final serverMsg = await _apiService.sendMessage(
-          conversationId: convId,
-          content: trimmed,
-          token: _token!,
-        );
+        final serverMsg = await _apiService.sendMessage(conversationId: convId, content: trimmed, token: _token);
         final idx = _messages.indexWhere((m) => m.id == tempId);
         if (idx >= 0) {
           _messages[idx] = serverMsg;

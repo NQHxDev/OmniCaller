@@ -9,17 +9,13 @@ class TypingIndicator extends StatefulWidget {
   State<TypingIndicator> createState() => _TypingIndicatorState();
 }
 
-class _TypingIndicatorState extends State<TypingIndicator>
-    with SingleTickerProviderStateMixin {
+class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
   }
 
   @override
@@ -40,10 +36,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
             width: 6,
             height: 6,
             margin: const EdgeInsets.symmetric(horizontal: 2),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle),
           ),
         );
       },
@@ -55,16 +48,12 @@ class _TypingIndicatorState extends State<TypingIndicator>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final bg = isDark
-        ? theme.colorScheme.surfaceContainerHighest
-        : theme.colorScheme.surfaceContainerHigh;
+    final bg = isDark ? theme.colorScheme.surfaceContainerHighest : theme.colorScheme.surfaceContainerHigh;
 
     final rawName = widget.username?.trim() ?? '';
     final parts = rawName.isNotEmpty ? rawName.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList() : <String>[];
     final shortName = parts.isNotEmpty ? parts.last : '';
-    final label = shortName.isNotEmpty
-        ? '$shortName đang nhập...'
-        : 'đang nhập...';
+    final label = shortName.isNotEmpty ? '$shortName đang nhập...' : 'đang nhập...';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
@@ -72,10 +61,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(16),
-            ),
+            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -85,11 +71,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
                 const SizedBox(width: 8),
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),

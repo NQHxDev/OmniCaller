@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:client/core/network/api_client.dart';
-import 'package:client/features/chat/data/models/chat_models.dart';
 import 'package:client/features/chat/data/services/chat_api_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -14,11 +13,7 @@ class MockHttpClient extends http.BaseClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final httpRequest = request as http.Request;
     final response = await handler(httpRequest);
-    return http.StreamedResponse(
-      Stream.value(response.bodyBytes),
-      response.statusCode,
-      headers: response.headers,
-    );
+    return http.StreamedResponse(Stream.value(response.bodyBytes), response.statusCode, headers: response.headers);
   }
 }
 
@@ -36,11 +31,7 @@ void main() {
               {
                 'id': 'conv_123',
                 'type': 'direct',
-                'other_user': {
-                  'user_id': 'u2',
-                  'username': 'bob',
-                  'display_name': 'Bob',
-                },
+                'other_user': {'user_id': 'u2', 'username': 'bob', 'display_name': 'Bob'},
                 'last_message': {
                   'id': 'm1',
                   'conversation_id': 'conv_123',
@@ -55,10 +46,10 @@ void main() {
                 'unread_count': 1,
                 'created_at': '2026-10-05T09:00:00Z',
                 'updated_at': '2026-10-05T10:00:00Z',
-              }
+              },
             ],
             'total': 1,
-          }
+          },
         });
 
         return http.Response(body, 200, headers: {'content-type': 'application/json'});
@@ -85,15 +76,11 @@ void main() {
           'data': {
             'id': 'conv_456',
             'type': 'direct',
-            'other_user': {
-              'user_id': 'u3',
-              'username': 'alice',
-              'display_name': 'Alice',
-            },
+            'other_user': {'user_id': 'u3', 'username': 'alice', 'display_name': 'Alice'},
             'unread_count': 0,
             'created_at': '2026-10-05T09:00:00Z',
             'updated_at': '2026-10-05T09:00:00Z',
-          }
+          },
         });
 
         return http.Response(body, 200, headers: {'content-type': 'application/json'});
@@ -102,10 +89,7 @@ void main() {
       final apiClient = ApiClient(client: mockClient, baseUrl: 'http://localhost:3000');
       final service = ChatApiService(apiClient: apiClient);
 
-      final result = await service.createOrGetDirectConversation(
-        friendUsername: 'alice',
-        token: 'test_token',
-      );
+      final result = await service.createOrGetDirectConversation(friendUsername: 'alice', token: 'test_token');
       expect(result.id, 'conv_456');
       expect(result.otherUser?.username, 'alice');
     });
@@ -129,11 +113,11 @@ void main() {
                 'status': 'sent',
                 'created_at': '2026-10-05T10:00:00Z',
                 'updated_at': '2026-10-05T10:00:00Z',
-              }
+              },
             ],
             'next_cursor': null,
             'has_more': false,
-          }
+          },
         });
 
         return http.Response(body, 200, headers: {'content-type': 'application/json'});
@@ -167,7 +151,7 @@ void main() {
             'status': 'sent',
             'created_at': '2026-10-05T10:05:00Z',
             'updated_at': '2026-10-05T10:05:00Z',
-          }
+          },
         });
 
         return http.Response(body, 200, headers: {'content-type': 'application/json'});
@@ -176,11 +160,7 @@ void main() {
       final apiClient = ApiClient(client: mockClient, baseUrl: 'http://localhost:3000');
       final service = ChatApiService(apiClient: apiClient);
 
-      final result = await service.sendMessage(
-        conversationId: 'conv_123',
-        content: 'Hello!',
-        token: 'test_token',
-      );
+      final result = await service.sendMessage(conversationId: 'conv_123', content: 'Hello!', token: 'test_token');
       expect(result.id, 'm2');
       expect(result.content, 'Hello!');
     });

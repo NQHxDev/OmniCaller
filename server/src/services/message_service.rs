@@ -139,6 +139,12 @@ impl MessageService {
          )
          .await?;
 
+      // Update sender last read message ID
+      let _ = self
+         .conversation_repo
+         .update_last_read(&dto.conversation_id, sender_id, &message.id)
+         .await;
+
       // Get message with sender info
       let (_, sender_user, sender_account) = self
          .message_repo

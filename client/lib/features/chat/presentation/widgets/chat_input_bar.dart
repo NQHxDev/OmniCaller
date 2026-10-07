@@ -10,15 +10,7 @@ class ChatInputBar extends StatefulWidget {
   final VoidCallback? onTyping;
   final VoidCallback? onTypingStopped;
 
-  const ChatInputBar({
-    super.key,
-    this.controller,
-    this.onSendMessage,
-    this.onSendImage,
-    this.onEmojiPressed,
-    this.onTyping,
-    this.onTypingStopped,
-  });
+  const ChatInputBar({super.key, this.controller, this.onSendMessage, this.onSendImage, this.onEmojiPressed, this.onTyping, this.onTypingStopped});
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -99,20 +91,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final inputBgColor = isDark
-        ? theme.colorScheme.surfaceContainerHighest.withAlpha(120)
-        : theme.colorScheme.surfaceContainerHighest.withAlpha(90);
+    final inputBgColor = isDark ? theme.colorScheme.surfaceContainerHighest.withAlpha(120) : theme.colorScheme.surfaceContainerHighest.withAlpha(90);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: theme.dividerColor.withAlpha(50),
-            width: 0.8,
-          ),
-        ),
+        border: Border(top: BorderSide(color: theme.dividerColor.withAlpha(50), width: 0.8)),
       ),
       child: SafeArea(
         top: false,
@@ -121,11 +106,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
           children: [
             // Left: Nút gửi ảnh (Send Image)
             IconButton(
-              icon: HugeIcon(
-                icon: HugeIcons.strokeRoundedImage01,
-                color: theme.colorScheme.primary,
-                size: 24.0,
-              ),
+              icon: HugeIcon(icon: HugeIcons.strokeRoundedImage01, color: theme.colorScheme.primary, size: 24.0),
               tooltip: 'Gửi ảnh',
               onPressed: widget.onSendImage ?? () {},
             ),
@@ -135,10 +116,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             Expanded(
               child: Container(
                 constraints: const BoxConstraints(maxHeight: 120),
-                decoration: BoxDecoration(
-                  color: inputBgColor,
-                  borderRadius: BorderRadius.circular(22.0),
-                ),
+                decoration: BoxDecoration(color: inputBgColor, borderRadius: BorderRadius.circular(22.0)),
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: TextField(
                   controller: _textController,
@@ -146,16 +124,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   maxLines: 5,
                   textCapitalization: TextCapitalization.sentences,
                   textInputAction: TextInputAction.newline,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: theme.colorScheme.onSurface,
-                  ),
+                  style: TextStyle(fontSize: 15, color: theme.colorScheme.onSurface),
                   decoration: InputDecoration(
                     hintText: 'Nhập tin nhắn...',
-                    hintStyle: TextStyle(
-                      fontSize: 15,
-                      color: theme.colorScheme.onSurfaceVariant.withAlpha(160),
-                    ),
+                    hintStyle: TextStyle(fontSize: 15, color: theme.colorScheme.onSurfaceVariant.withAlpha(160)),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10.0),
@@ -168,21 +140,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
             // Right: Nút thả icon / emoji (Emoji/Icon button) or Send button when text is present
             if (_hasText)
               IconButton(
-                icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedSent,
-                  color: theme.colorScheme.primary,
-                  size: 24.0,
-                ),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedSent, color: theme.colorScheme.primary, size: 24.0),
                 tooltip: 'Gửi tin nhắn',
                 onPressed: _handleSend,
               )
             else
               IconButton(
-                icon: HugeIcon(
-                  icon: HugeIcons.strokeRoundedSmile,
-                  color: theme.colorScheme.primary,
-                  size: 24.0,
-                ),
+                icon: HugeIcon(icon: HugeIcons.strokeRoundedSmile, color: theme.colorScheme.primary, size: 24.0),
                 tooltip: 'Thả icon / Emoji',
                 onPressed: widget.onEmojiPressed ?? () {},
               ),

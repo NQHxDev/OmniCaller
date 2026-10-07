@@ -6,6 +6,7 @@ import '../../../chat/presentation/controllers/conversations_controller.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
 import '../../../friends/data/models/friend_models.dart';
 import '../../../friends/presentation/controllers/friends_controller.dart';
+import '../../../groups/data/models/group_models.dart';
 import '../../../groups/presentation/pages/create_group_page.dart';
 import '../../../profile/presentation/pages/user_profile_page.dart';
 import '../../../search/presentation/controllers/user_search_controller.dart';
@@ -128,12 +129,26 @@ class _MessagesPageState extends State<MessagesPage>
           friendsController: _friendsController,
         ),
       ),
-    );
+    ).then((result) {
+      _loadData();
+      if (result is GroupProfileResponse && mounted) {
+        _onOpenChat(
+          conversationId: result.id,
+          isGroup: true,
+          groupTitle: result.name,
+          memberCount: result.memberCount,
+          displayName: result.name,
+        );
+      }
+    });
   }
 
   void _onOpenChat({
     String? conversationId,
-    required String username,
+    bool isGroup = false,
+    String? groupTitle,
+    int? memberCount,
+    String username = "",
     String? displayName,
     String? userId,
   }) {
@@ -141,6 +156,9 @@ class _MessagesPageState extends State<MessagesPage>
       MaterialPageRoute(
         builder: (context) => ChatPage(
           conversationId: conversationId,
+          isGroup: isGroup,
+          groupTitle: groupTitle,
+          memberCount: memberCount,
           username: username,
           displayName: displayName,
           userId: userId,
@@ -395,12 +413,23 @@ class _MessagesPageState extends State<MessagesPage>
                           ],
                         ),
                       ),
-                      onTap: () => _onOpenChat(
-                        conversationId: conv.id,
-                        username: conv.otherUser?.username ?? '',
-                        displayName: conv.otherUser?.displayName,
-                        userId: conv.otherUser?.userId,
-                      ),
+                      onTap: () {
+                        if (conv.type == ConversationType.group) {
+                          _onOpenChat(
+                            conversationId: conv.id,
+                            isGroup: true,
+                            groupTitle: conv.title,
+                            displayName: conv.title,
+                          );
+                        } else {
+                          _onOpenChat(
+                            conversationId: conv.id,
+                            username: conv.otherUser?.username ?? '',
+                            displayName: conv.otherUser?.displayName,
+                            userId: conv.otherUser?.userId,
+                          );
+                        }
+                      },
                     );
                   } else if (item is _NewFriendListItem) {
                     final friend = item.friend;

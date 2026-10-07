@@ -58,9 +58,14 @@ class ConversationsController extends ChangeNotifier {
     final idx = _conversations.indexWhere((c) => c.id == message.conversationId);
     if (idx >= 0) {
       final existing = _conversations.removeAt(idx);
+      final isSameMessage = existing.lastMessage?.id == message.id;
+      final newUnreadCount = isFromSelf
+          ? 0
+          : (isSameMessage ? existing.unreadCount : (existing.unreadCount + 1));
+
       final updated = existing.copyWith(
         lastMessage: message,
-        unreadCount: isFromSelf ? 0 : (existing.unreadCount + 1),
+        unreadCount: newUnreadCount,
         updatedAt: message.createdAt,
       );
       _conversations.insert(0, updated);

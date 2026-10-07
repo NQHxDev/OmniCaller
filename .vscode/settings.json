@@ -29,5 +29,5 @@
       "**/node_modules/**": true
    },
    "java.compile.nullAnalysis.mode": "automatic",
-   "cSpell.words": ["ILIKE"]
+   "cSpell.words": ["hugeicons", "ILIKE"]
 }

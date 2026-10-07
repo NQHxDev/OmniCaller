@@ -19,6 +19,7 @@ use config::Config;
 use dashmap::DashMap;
 use handlers::auth_handler::AuthHandler;
 use handlers::friend_handler::FriendHandler;
+use handlers::group_handler::GroupHandler;
 use handlers::message_handler::MessageHandler;
 use handlers::user_handler::UserHandler;
 use handlers::websocket_handler::{websocket_handler, ConnectionManager, WebSocketState};
@@ -33,6 +34,7 @@ use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use services::auth_service::AuthService;
 use services::friend_service::FriendService;
+use services::group_service::GroupService;
 use services::message_service::MessageService;
 use services::user_service::UserService;
 use std::net::SocketAddr;
@@ -102,14 +104,16 @@ async fn main() -> anyhow::Result<()> {
    // Initialize services
    let auth_service = AuthService::new(account_repo, user_repo.clone(), jwt_config.clone());
    let user_service = UserService::new(user_repo.clone());
-   let friend_service = FriendService::new(friend_repo, user_repo.clone());
-   let message_service = MessageService::new(conversation_repo, message_repo, user_repo.clone());
+   let friend_service = FriendService::new(friend_repo.clone(), user_repo.clone());
+   let message_service = MessageService::new(conversation_repo.clone(), message_repo, user_repo.clone());
+   let group_service = GroupService::new(conversation_repo.clone(), friend_repo.clone());
 
    // Initialize handlers
    let auth_handler = AuthHandler::new(auth_service);
    let user_handler = UserHandler::new(user_service);
    let friend_handler = FriendHandler::new(friend_service);
    let message_handler = MessageHandler::new(message_service.clone());
+   let group_handler = GroupHandler::new(group_service);
 
    // WebSocket connection manager
    let connections: ConnectionManager = Arc::new(DashMap::new());
@@ -130,6 +134,7 @@ async fn main() -> anyhow::Result<()> {
    let auth_state_user = AuthState { jwt_config: jwt_config.clone() };
    let auth_state_friend = AuthState { jwt_config: jwt_config.clone() };
    let auth_state_message = AuthState { jwt_config: jwt_config.clone() };
+   let auth_state_group = AuthState { jwt_config: jwt_config.clone() };
 
    // Build public auth routes
    let public_auth_routes = Router::new()
@@ -214,6 +219,23 @@ async fn main() -> anyhow::Result<()> {
          },
       ));
 
+   // Build group routes (all require authentication)
+   let group_routes = Router::new()
+      .route("/", post(GroupHandler::create_group).get(GroupHandler::get_user_groups))
+      .route("/:id/members/promote", post(GroupHandler::promote_member))
+      .route("/:id/members/demote", post(GroupHandler::demote_member))
+      .route("/:id/transfer-ownership", post(GroupHandler::transfer_ownership))
+      .with_state(group_handler)
+      .layer(middleware::from_fn(
+         move |mut req: axum::extract::Request, next: axum::middleware::Next| {
+            let auth_state = auth_state_group.clone();
+            async move {
+               req.extensions_mut().insert(auth_state);
+               next.run(req).await
+            }
+         },
+      ));
+
    // WebSocket route (separate router with its own state)
    let ws_router = Router::new().route("/ws", get(websocket_handler)).with_state(ws_state);
 
@@ -225,6 +247,7 @@ async fn main() -> anyhow::Result<()> {
       .nest("/api/auth", auth_routes)
       .nest("/api/users", user_routes)
       .nest("/api/friends", friend_routes)
+      .nest("/api/groups", group_routes)
       .nest("/api", message_routes)
       .with_state(state)
       .merge(ws_router)

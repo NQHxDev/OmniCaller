@@ -16,6 +16,14 @@ pub struct Model {
    #[sea_orm(column_type = "String(StringLen::N(255))")]
    pub avatar_url: Option<String>,
 
+   #[sea_orm(column_type = "String(StringLen::N(500))")]
+   pub description: Option<String>,
+
+   #[sea_orm(column_type = "String(StringLen::N(255))")]
+   pub banner_url: Option<String>,
+
+   pub pinned_message_id: Option<Uuid>,
+
    pub created_by: Uuid,
 
    pub created_at: DateTimeWithTimeZone,
@@ -48,6 +56,18 @@ pub enum Relation {
 
    #[sea_orm(has_many = "super::message::Entity")]
    Messages,
+
+   #[sea_orm(
+      belongs_to = "super::message::Entity",
+      from = "Column::PinnedMessageId",
+      to = "super::message::Column::Id",
+      on_update = "Cascade",
+      on_delete = "SetNull"
+   )]
+   PinnedMessage,
+
+   #[sea_orm(has_many = "super::group_invite::Entity")]
+   GroupInvites,
 }
 
 impl Related<super::user::Entity> for Entity {
@@ -65,6 +85,12 @@ impl Related<super::conversation_member::Entity> for Entity {
 impl Related<super::message::Entity> for Entity {
    fn to() -> RelationDef {
       Relation::Messages.def()
+   }
+}
+
+impl Related<super::group_invite::Entity> for Entity {
+   fn to() -> RelationDef {
+      Relation::GroupInvites.def()
    }
 }
 

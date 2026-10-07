@@ -21,6 +21,7 @@ import 'package:client/features/search/data/models/user_search_models.dart';
 import 'package:client/features/search/data/services/user_search_api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hugeicons/hugeicons.dart';
 
 class StubAuthService implements IAuthApiService {
   @override
@@ -223,6 +224,14 @@ void main() {
     expect(find.byType(ChatPage), findsOneWidget);
     expect(find.byType(ChatInputBar), findsOneWidget);
 
+    // Verify individual user icon is shown
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is HugeIcon && widget.icon == HugeIcons.strokeRoundedUser,
+      ),
+      findsOneWidget,
+    );
+
     // Tap on Alice's name in the AppBar
     await tester.tap(find.text('Alice Wonderland'));
     await tester.pumpAndSettle();
@@ -239,6 +248,66 @@ void main() {
     // Verify we are back on ChatPage
     expect(find.byType(UserProfilePage), findsNothing);
     expect(find.byType(ChatPage), findsOneWidget);
+  });
+
+  testWidgets('ChatPage renders group icon, group name, and member count without @username when in group mode', (WidgetTester tester) async {
+    final stubChatApiService = StubChatApiService();
+    final stubWsService = StubChatWebSocketService();
+
+    stubChatApiService.messagesToReturn = [
+      MessageModel(
+        id: 'msg_grp_1',
+        conversationId: 'grp_conv_1',
+        senderId: 'u_alice',
+        senderUsername: 'alice',
+        senderDisplayName: 'Alice Nguyen',
+        content: 'Chào cả nhóm!',
+        status: MessageStatus.read,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      AuthScope(
+        controller: authController,
+        child: MaterialApp(
+          home: ChatPage(
+            conversationId: 'grp_conv_1',
+            isGroup: true,
+            groupTitle: 'OmniCaller Team',
+            memberCount: 5,
+            chatApiService: stubChatApiService,
+            wsService: stubWsService,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify group title and member count subtitle
+    expect(find.text('OmniCaller Team'), findsOneWidget);
+    expect(find.text('5 thành viên'), findsOneWidget);
+
+    // Verify no @username is displayed
+    expect(find.textContaining('@'), findsNothing);
+
+    // Verify group icon is displayed in AppBar
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is HugeIcon && widget.icon == HugeIcons.strokeRoundedUserGroup,
+      ),
+      findsOneWidget,
+    );
+
+    // Verify sender name is shown above message bubble in group chat
+    expect(find.text('Alice Nguyen'), findsOneWidget);
+    expect(find.text('Chào cả nhóm!'), findsOneWidget);
+
+    // Tap on AppBar group title -> does NOT open UserProfilePage
+    await tester.tap(find.text('OmniCaller Team'));
+    await tester.pumpAndSettle();
+    expect(find.byType(UserProfilePage), findsNothing);
   });
 
   testWidgets('ChatPage displays messages and sends a new message with bubble UI', (WidgetTester tester) async {

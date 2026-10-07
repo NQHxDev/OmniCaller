@@ -71,5 +71,9 @@ class ApiConfig {
   static String conversationMessagesEndpoint(String conversationId) => '/api/conversations/$conversationId/messages';
   static const String sendMessageEndpoint = '/api/messages';
 
+  // Group endpoints
+  static const String groupsEndpoint = '/api/groups';
+  static String groupDetailEndpoint(String groupId) => '/api/groups/$groupId';
+
   static const String healthEndpoint = '/health';
 }

@@ -57,6 +57,9 @@ impl ConversationRepository {
          r#type: Set(ConversationType::Direct),
          title: Set(None),
          avatar_url: Set(None),
+         description: Set(None),
+         banner_url: Set(None),
+         pinned_message_id: Set(None),
          created_by: Set(*creator_id),
          created_at: Set(now),
          updated_at: Set(now),
@@ -213,9 +216,10 @@ impl ConversationRepository {
 
       if let Some(member) = member {
          if let Some(last_read_id) = member.last_read_message_id {
-            // Count messages after last read
+            // Count messages after last read, excluding messages sent by the user
             let count = crate::entities::message::Entity::find()
                .filter(crate::entities::message::Column::ConversationId.eq(*conversation_id))
+               .filter(crate::entities::message::Column::SenderId.ne(*user_id))
                .filter(crate::entities::message::Column::Id.gt(last_read_id))
                .filter(crate::entities::message::Column::DeletedAt.is_null())
                .count(&self.db)
@@ -223,9 +227,10 @@ impl ConversationRepository {
 
             return Ok(count);
          } else {
-            // No last read, count all messages
+            // No last read, count all messages not sent by the user
             let count = crate::entities::message::Entity::find()
                .filter(crate::entities::message::Column::ConversationId.eq(*conversation_id))
+               .filter(crate::entities::message::Column::SenderId.ne(*user_id))
                .filter(crate::entities::message::Column::DeletedAt.is_null())
                .count(&self.db)
                .await?;
@@ -235,5 +240,131 @@ impl ConversationRepository {
       }
 
       Ok(0)
+   }
+
+   /// Create a new group conversation
+   pub async fn create_group_conversation(
+      &self,
+      creator_id: &Uuid,
+      title: String,
+      description: Option<String>,
+      avatar_url: Option<String>,
+      banner_url: Option<String>,
+      member_ids: Vec<Uuid>,
+   ) -> Result<conversation::Model> {
+      let now = chrono::Utc::now().into();
+      let conversation_id = Uuid::now_v7();
+
+      // Create group conversation
+      let conversation = conversation::ActiveModel {
+         id: Set(conversation_id),
+         r#type: Set(ConversationType::Group),
+         title: Set(Some(title)),
+         avatar_url: Set(avatar_url),
+         description: Set(description),
+         banner_url: Set(banner_url),
+         pinned_message_id: Set(None),
+         created_by: Set(*creator_id),
+         created_at: Set(now),
+         updated_at: Set(now),
+         deleted_at: Set(None),
+      };
+
+      let created_conv = conversation.insert(&self.db).await?;
+
+      // Add creator as owner
+      let creator_member = conversation_member::ActiveModel {
+         id: Set(Uuid::now_v7()),
+         conversation_id: Set(conversation_id),
+         user_id: Set(*creator_id),
+         role: Set(MemberRole::Owner),
+         last_read_message_id: Set(None),
+         joined_at: Set(now),
+         left_at: Set(None),
+      };
+      creator_member.insert(&self.db).await?;
+
+      // Add other members
+      for member_id in member_ids {
+         if member_id != *creator_id {
+            let member = conversation_member::ActiveModel {
+               id: Set(Uuid::now_v7()),
+               conversation_id: Set(conversation_id),
+               user_id: Set(member_id),
+               role: Set(MemberRole::Member),
+               last_read_message_id: Set(None),
+               joined_at: Set(now),
+               left_at: Set(None),
+            };
+            member.insert(&self.db).await?;
+         }
+      }
+
+      Ok(created_conv)
+   }
+
+   /// Get member count for a conversation
+   pub async fn get_member_count(&self, conversation_id: &Uuid) -> Result<i64> {
+      let count = ConversationMember::find()
+         .filter(conversation_member::Column::ConversationId.eq(*conversation_id))
+         .filter(conversation_member::Column::LeftAt.is_null())
+         .count(&self.db)
+         .await?;
+
+      Ok(count as i64)
+   }
+
+   /// Get member role in a conversation
+   pub async fn get_member_role(
+      &self,
+      conversation_id: &Uuid,
+      user_id: &Uuid,
+   ) -> Result<Option<MemberRole>> {
+      let member = ConversationMember::find()
+         .filter(conversation_member::Column::ConversationId.eq(*conversation_id))
+         .filter(conversation_member::Column::UserId.eq(*user_id))
+         .filter(conversation_member::Column::LeftAt.is_null())
+         .one(&self.db)
+         .await?;
+
+      Ok(member.map(|m| m.role))
+   }
+
+   /// Update member role
+   pub async fn update_member_role(
+      &self,
+      conversation_id: &Uuid,
+      user_id: &Uuid,
+      new_role: MemberRole,
+   ) -> Result<()> {
+      ConversationMember::update_many()
+         .col_expr(conversation_member::Column::Role, sea_orm::sea_query::Expr::value(new_role))
+         .filter(conversation_member::Column::ConversationId.eq(*conversation_id))
+         .filter(conversation_member::Column::UserId.eq(*user_id))
+         .filter(conversation_member::Column::LeftAt.is_null())
+         .exec(&self.db)
+         .await?;
+
+      Ok(())
+   }
+
+   /// Transfer ownership from current owner to new owner
+   pub async fn transfer_ownership(
+      &self,
+      conversation_id: &Uuid,
+      current_owner_id: &Uuid,
+      new_owner_id: &Uuid,
+   ) -> Result<()> {
+      // Demote current owner to admin
+      self
+         .update_member_role(conversation_id, current_owner_id, MemberRole::Admin)
+         .await?;
+
+      // Promote new owner
+      self
+         .update_member_role(conversation_id, new_owner_id, MemberRole::Owner)
+         .await?;
+
+      Ok(())
    }
 }

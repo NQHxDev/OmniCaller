@@ -17,6 +17,9 @@ class ChatPage extends StatefulWidget {
   final String username;
   final String? displayName;
   final String? avatarUrl;
+  final bool isGroup;
+  final String? groupTitle;
+  final int? memberCount;
   final bool openedFromChat;
   final ChatController? chatController;
   final IChatApiService? chatApiService;
@@ -28,9 +31,12 @@ class ChatPage extends StatefulWidget {
     super.key,
     this.conversationId,
     this.userId,
-    required this.username,
+    this.username = '',
     this.displayName,
     this.avatarUrl,
+    this.isGroup = false,
+    this.groupTitle,
+    this.memberCount,
     this.openedFromChat = false,
     this.chatController,
     this.chatApiService,
@@ -72,8 +78,8 @@ class _ChatPageState extends State<ChatPage> {
       if (_isInternalController) {
         _controller = ChatController(
           conversationId: widget.conversationId,
-          friendUsername: widget.username,
-          friendDisplayName: widget.displayName,
+          friendUsername: widget.isGroup ? null : widget.username,
+          friendDisplayName: widget.isGroup ? null : widget.displayName,
           friendUserId: widget.userId,
           currentUserId: auth?.currentUser?.id,
           currentUsername: auth?.currentUser?.username,
@@ -106,6 +112,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _onOpenProfile() {
+    if (widget.username.isEmpty) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => UserProfilePage(
@@ -147,15 +154,30 @@ class _ChatPageState extends State<ChatPage> {
     final currentUserId = auth?.currentUser?.id ?? '';
     final currentUsername = auth?.currentUser?.username ?? '';
 
-    final title = (widget.displayName != null && widget.displayName!.isNotEmpty)
-        ? widget.displayName!
-        : widget.username;
+    final isGroupChat = widget.isGroup ||
+        (widget.groupTitle != null && widget.groupTitle!.isNotEmpty);
+
+    final title = isGroupChat
+        ? (widget.groupTitle != null && widget.groupTitle!.isNotEmpty
+            ? widget.groupTitle!
+            : (widget.displayName != null && widget.displayName!.isNotEmpty
+                ? widget.displayName!
+                : (widget.username.isNotEmpty ? widget.username : 'Nhóm trò chuyện')))
+        : ((widget.displayName != null && widget.displayName!.isNotEmpty)
+            ? widget.displayName!
+            : (widget.username.isNotEmpty ? widget.username : 'Cuộc trò chuyện'));
+
+    final subtitle = isGroupChat
+        ? (widget.memberCount != null && widget.memberCount! > 0
+            ? '${widget.memberCount} thành viên'
+            : 'Nhóm trò chuyện')
+        : (widget.username.isNotEmpty ? '@${widget.username}' : '');
 
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
         title: InkWell(
-          onTap: _onOpenProfile,
+          onTap: isGroupChat ? null : _onOpenProfile,
           borderRadius: BorderRadius.circular(8),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
@@ -165,7 +187,9 @@ class _ChatPageState extends State<ChatPage> {
                   radius: 18,
                   backgroundColor: theme.colorScheme.primaryContainer,
                   child: HugeIcon(
-                    icon: HugeIcons.strokeRoundedUser,
+                    icon: isGroupChat
+                        ? HugeIcons.strokeRoundedUserGroup
+                        : HugeIcons.strokeRoundedUser,
                     color: theme.colorScheme.primary,
                     size: 20.0,
                   ),
@@ -185,15 +209,16 @@ class _ChatPageState extends State<ChatPage> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        '@${widget.username}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: theme.colorScheme.onSurfaceVariant,
+                      if (subtitle.isNotEmpty)
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
                     ],
                   ),
                 ),
@@ -254,14 +279,16 @@ class _ChatPageState extends State<ChatPage> {
                             ),
                             alignment: Alignment.center,
                             child: HugeIcon(
-                              icon: HugeIcons.strokeRoundedMessage01,
+                              icon: isGroupChat
+                                  ? HugeIcons.strokeRoundedUserGroup
+                                  : HugeIcons.strokeRoundedMessage01,
                               color: theme.colorScheme.primary,
                               size: 32.0,
                             ),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Chưa có tin nhắn nào',
+                            isGroupChat ? 'Chào mừng đến với nhóm!' : 'Chưa có tin nhắn nào',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -270,7 +297,9 @@ class _ChatPageState extends State<ChatPage> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Hãy gửi lời chào đầu tiên để bắt đầu trò chuyện!',
+                            isGroupChat
+                                ? 'Hãy gửi tin nhắn đầu tiên để cùng nhau thảo luận!'
+                                : 'Hãy gửi lời chào đầu tiên để bắt đầu trò chuyện!',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
@@ -297,25 +326,34 @@ class _ChatPageState extends State<ChatPage> {
                         ),
                       ),
                     Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        reverse: true,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: _controller.messages.length,
-                        itemBuilder: (context, index) {
-                          final message = _controller.messages[index];
-                          final isMine = message.isMine(currentUserId, currentUsername);
-                          return ChatMessageBubble(
-                            message: message,
-                            isMine: isMine,
-                            showAvatar: !isMine,
-                          );
-                        },
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(
+                          overscroll: false,
+                        ),
+                        child: ListView.builder(
+                          physics: const ClampingScrollPhysics(),
+                          controller: _scrollController,
+                          reverse: true,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: _controller.messages.length,
+                          itemBuilder: (context, index) {
+                            final message = _controller.messages[index];
+                            final isMine = message.isMine(currentUserId, currentUsername);
+                            return ChatMessageBubble(
+                              message: message,
+                              isMine: isMine,
+                              showAvatar: !isMine,
+                              showSenderName: isGroupChat,
+                            );
+                          },
+                        ),
                       ),
                     ),
                     if (_controller.isOtherUserTyping)
                       TypingIndicator(
-                        username: widget.displayName ?? widget.username,
+                        username: isGroupChat
+                            ? 'Một thành viên'
+                            : (widget.displayName ?? widget.username),
                       ),
                   ],
                 );

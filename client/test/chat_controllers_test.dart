@@ -305,7 +305,7 @@ void main() {
       expect(conversationsCtrl.conversations[0].lastMessage?.content, 'I sent this');
       expect(conversationsCtrl.conversations[0].unreadCount, 0);
 
-      // 2. Incoming new message from friend (alice) -> should increment unreadCount
+      // 2. Incoming new message from friend (alice) -> should increment unreadCount exactly once
       final friendMsg = MessageModel(
         id: 'm_friend',
         conversationId: 'c1',
@@ -323,6 +323,12 @@ void main() {
 
       expect(conversationsCtrl.conversations[0].id, 'c1');
       expect(conversationsCtrl.conversations[0].lastMessage?.content, 'New message for c1');
+      expect(conversationsCtrl.conversations[0].unreadCount, 1);
+
+      // 3. Repeated event for the same message id should NOT double increment
+      fakeWs.emit(WsMessageNewEvent(message: friendMsg));
+      await Future.delayed(const Duration(milliseconds: 10));
+
       expect(conversationsCtrl.conversations[0].unreadCount, 1);
     });
   });
