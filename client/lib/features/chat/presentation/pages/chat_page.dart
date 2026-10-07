@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
 import '../../../../core/auth/auth_scope.dart';
+import '../../../calls/data/models/call_model.dart';
+import '../../../calls/presentation/controllers/call_controller.dart';
+import '../../../calls/presentation/controllers/call_signaling_listener.dart';
 import '../../../friends/data/services/friend_api_service.dart';
 import '../../../profile/presentation/pages/user_profile_page.dart';
 import '../../../search/data/services/user_search_api_service.dart';
+import '../../data/models/chat_models.dart';
 import '../../data/services/chat_api_service.dart';
 import '../../data/services/chat_websocket_service.dart';
 import '../controllers/chat_controller.dart';
+import '../widgets/call_log_bubble.dart';
 import '../widgets/chat_input_bar.dart';
 import '../widgets/chat_message_bubble.dart';
 import '../widgets/typing_indicator.dart';
@@ -127,6 +132,39 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  void _handleStartCall(CallType callType) {
+    final auth = AuthScope.maybeOf(context);
+    if (auth == null || !auth.isAuthenticated || auth.accessToken == null) return;
+
+    final targetUserId = widget.userId ?? _controller.friendUserId;
+    if (targetUserId == null && !widget.isGroup) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không thể bắt đầu cuộc gọi: Thiếu thông tin người nhận')),
+      );
+      return;
+    }
+
+    final callController = CallController(
+      token: auth.accessToken,
+      currentUserId: auth.currentUser?.id,
+    );
+
+    final listener = CallSignalingListener(callController: callController);
+
+    listener.startCall(
+      context: context,
+      callType: callType,
+      mode: widget.isGroup ? CallMode.group : CallMode.direct,
+      participantIds: targetUserId != null ? [targetUserId] : [],
+      conversationId: _controller.conversationId ?? widget.conversationId,
+      calleeName: widget.isGroup
+          ? (widget.groupTitle ?? 'Nhóm trò chuyện')
+          : (widget.displayName ?? widget.username),
+      calleeAvatar: widget.avatarUrl,
+      calleeUserId: targetUserId,
+    );
+  }
+
   void _onSendMessage(String text) {
     if (text.trim().isEmpty) return;
     _controller.sendMessage(text);
@@ -134,7 +172,6 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _onSendImage() {
-    // Send image placeholder (ready for file picker / image upload integration)
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Tính năng chọn và gửi ảnh đang được chuẩn bị'),
@@ -228,18 +265,20 @@ class _ChatPageState extends State<ChatPage> {
         ),
         actions: [
           IconButton(
+            tooltip: 'Gọi thoại',
             icon: const HugeIcon(
               icon: HugeIcons.strokeRoundedCall02,
               size: 20.0,
             ),
-            onPressed: () {},
+            onPressed: () => _handleStartCall(CallType.voice),
           ),
           IconButton(
+            tooltip: 'Gọi video',
             icon: const HugeIcon(
               icon: HugeIcons.strokeRoundedVideo01,
               size: 20.0,
             ),
-            onPressed: () {},
+            onPressed: () => _handleStartCall(CallType.video),
           ),
           IconButton(
             icon: const HugeIcon(
@@ -339,6 +378,18 @@ class _ChatPageState extends State<ChatPage> {
                           itemBuilder: (context, index) {
                             final message = _controller.messages[index];
                             final isMine = message.isMine(currentUserId, currentUsername);
+
+                            // Render Call Log Bubble
+                            if (message.messageType == MessageType.callLog) {
+                              final meta = message.callLogMetadata;
+                              final callType = (meta?.isVideo == true) ? CallType.video : CallType.voice;
+                              return CallLogBubble(
+                                message: message,
+                                isMine: isMine,
+                                onCallBack: () => _handleStartCall(callType),
+                              );
+                            }
+
                             return ChatMessageBubble(
                               message: message,
                               isMine: isMine,

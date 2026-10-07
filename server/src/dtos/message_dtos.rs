@@ -114,7 +114,7 @@ pub enum WsClientMessage {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum WsServerMessage {
-   // Server -> Client
+   // Server -> Client - Messages
    MessageNew {
       message: MessageDto,
    },
@@ -131,6 +131,44 @@ pub enum WsServerMessage {
       conversation_id: Uuid,
       user_id: Uuid,
    },
+   
+   // Server -> Client - Calls
+   IncomingCall {
+      call_id: Uuid,
+      room_name: String,
+      call_type: String,
+      mode: String,
+      initiated_by: Uuid,
+      initiator_name: String,
+      conversation_id: Option<Uuid>,
+   },
+   CallStatusUpdate {
+      call_id: Uuid,
+      status: String,
+   },
+   ParticipantJoined {
+      call_id: Uuid,
+      user_id: Uuid,
+      username: String,
+   },
+   ParticipantLeft {
+      call_id: Uuid,
+      user_id: Uuid,
+      username: String,
+   },
+   CallEnded {
+      call_id: Uuid,
+      ended_by: Uuid,
+      duration: Option<i32>,
+   },
+   
+   // Server -> Client - Presence
+   PresenceUpdate {
+      user_id: Uuid,
+      status: String,
+   },
+   
+   // General
    Error {
       message: String,
    },

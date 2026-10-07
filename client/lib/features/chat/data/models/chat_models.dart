@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 enum MessageType {
   text,
   image,
   file,
+  callLog,
   system;
 
   static MessageType fromString(String? value) {
@@ -10,6 +13,9 @@ enum MessageType {
         return MessageType.image;
       case 'file':
         return MessageType.file;
+      case 'call_log':
+      case 'calllog':
+        return MessageType.callLog;
       case 'system':
         return MessageType.system;
       case 'text':
@@ -18,7 +24,12 @@ enum MessageType {
     }
   }
 
-  String toJson() => name;
+  String toJson() {
+    if (this == MessageType.callLog) {
+      return 'call_log';
+    }
+    return name;
+  }
 }
 
 enum MessageStatus {
@@ -46,6 +57,107 @@ enum MessageStatus {
   }
 
   String toJson() => name;
+}
+
+class CallLogMetadata {
+  final String callId;
+  final String callType; // voice | video
+  final String mode; // direct | group
+  final String status; // completed | rejected | missed | cancelled
+  final int? duration;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+
+  const CallLogMetadata({
+    required this.callId,
+    required this.callType,
+    this.mode = 'direct',
+    required this.status,
+    this.duration,
+    this.startedAt,
+    this.endedAt,
+  });
+
+  bool get isVideo => callType.toLowerCase() == 'video';
+  bool get isCompleted => status == 'completed';
+  bool get isOngoing => status == 'active' || status == 'ongoing';
+  bool get isMissed => status == 'missed';
+  bool get isRejected => status == 'rejected';
+  bool get isCancelled => status == 'cancelled';
+
+  String formatDuration() {
+    if (duration == null || duration! <= 0) return '';
+    final totalSeconds = duration!;
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      if (minutes > 0) {
+        return '$hours giờ $minutes phút';
+      } else {
+        return '$hours giờ';
+      }
+    } else if (minutes > 0) {
+      if (seconds > 0) {
+        return '$minutes phút $seconds giây';
+      } else {
+        return '$minutes phút';
+      }
+    } else {
+      return '$seconds giây';
+    }
+  }
+
+  String titleText(bool isMine) {
+    final typeName = isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại';
+    if (isCompleted) {
+      return typeName;
+    } else if (isRejected) {
+      return isMine ? '$typeName bị từ chối' : 'Đã từ chối $typeName';
+    } else if (isMissed) {
+      return isMine ? '$typeName bị nhỡ' : 'Cuộc gọi nhỡ';
+    } else {
+      return isMine ? 'Đã hủy $typeName' : '$typeName bị hủy';
+    }
+  }
+
+  String displayText(bool isMine) {
+    final typeName = isVideo ? 'Cuộc gọi video' : 'Cuộc gọi thoại';
+    if (isCompleted) {
+      return '$typeName - Đã kết thúc';
+    } else if (isOngoing) {
+      return '$typeName - Đang diễn ra';
+    } else if (isRejected) {
+      return isMine ? '$typeName bị từ chối' : 'Đã từ chối $typeName';
+    } else if (isMissed) {
+      return isMine ? '$typeName bị nhỡ' : 'Cuộc gọi nhỡ';
+    } else {
+      return isMine ? 'Đã hủy $typeName' : '$typeName bị hủy';
+    }
+  }
+
+  factory CallLogMetadata.fromJson(Map<String, dynamic> json) {
+    return CallLogMetadata(
+      callId: json['call_id'] as String? ?? '',
+      callType: json['call_type'] as String? ?? 'voice',
+      mode: json['mode'] as String? ?? 'direct',
+      status: json['status'] as String? ?? 'completed',
+      duration: (json['duration'] as num?)?.toInt(),
+      startedAt: json['started_at'] != null ? DateTime.tryParse(json['started_at'] as String) : null,
+      endedAt: json['ended_at'] != null ? DateTime.tryParse(json['ended_at'] as String) : null,
+    );
+  }
+
+  static CallLogMetadata? tryParse(String content) {
+    try {
+      final json = jsonDecode(content);
+      if (json is Map<String, dynamic>) {
+        return CallLogMetadata.fromJson(json);
+      }
+    } catch (_) {}
+    return null;
+  }
 }
 
 enum ConversationType {
@@ -126,6 +238,13 @@ class MessageModel {
       return senderUsername.toLowerCase() == currentUsername.toLowerCase();
     }
     return false;
+  }
+
+  CallLogMetadata? get callLogMetadata {
+    if (messageType == MessageType.callLog) {
+      return CallLogMetadata.tryParse(content);
+    }
+    return null;
   }
 
   MessageModel copyWith({
@@ -235,6 +354,16 @@ class ConversationModel {
       return 'Hãy bắt đầu cuộc trò chuyện!';
     }
     final isMine = lastMessage!.isMine(currentUserId, currentUsername);
+    
+    // Check if lastMessage is call_log
+    if (lastMessage!.messageType == MessageType.callLog) {
+      final meta = lastMessage!.callLogMetadata;
+      if (meta != null) {
+        return meta.displayText(isMine);
+      }
+      return isMine ? 'Cuộc gọi đi' : 'Cuộc gọi đến';
+    }
+
     if (isMine) {
       return 'Tôi: ${lastMessage!.content}';
     }
@@ -258,6 +387,13 @@ class ConversationModel {
 
   String get displaySubtitle {
     if (lastMessage != null && lastMessage!.content.isNotEmpty) {
+      if (lastMessage!.messageType == MessageType.callLog) {
+        final meta = lastMessage!.callLogMetadata;
+        if (meta != null) {
+          return meta.displayText(false);
+        }
+        return 'Lịch sử cuộc gọi';
+      }
       return lastMessage!.content;
     }
     return 'Hãy bắt đầu cuộc trò chuyện!';

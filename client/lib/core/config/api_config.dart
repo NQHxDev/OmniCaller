@@ -1,17 +1,22 @@
+
 class ApiConfig {
   /// Default LAN IP & Port for connecting from real physical devices
   static const String defaultHost = '192.168.1.162';
+  static const String emulatorHost = '10.0.2.2';
   static const int defaultPort = 3000;
+  static const int defaultLiveKitPort = 7880;
 
   /// Build-time environment variables:
   /// --dart-define=API_BASE_URL=http://192.168.1.162:3000
   /// or --dart-define=API_HOST=192.168.1.162 --dart-define=API_PORT=3000
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const String _envLiveKitUrl = String.fromEnvironment('LIVEKIT_URL');
   static const String _envHost = String.fromEnvironment('API_HOST');
   static const String _envPort = String.fromEnvironment('API_PORT');
 
   /// Dynamic runtime override support
   static String? _customBaseUrl;
+  static String? _customLiveKitUrl;
 
   static void setBaseUrl(String url) {
     _customBaseUrl = url;
@@ -19,6 +24,22 @@ class ApiConfig {
 
   static void resetBaseUrl() {
     _customBaseUrl = null;
+  }
+
+  static void setLiveKitUrl(String url) {
+    _customLiveKitUrl = url;
+  }
+
+  static void resetLiveKitUrl() {
+    _customLiveKitUrl = null;
+  }
+
+  /// Get effective host (detects if running on Android Emulator)
+  static String get resolvedHost {
+    if (_envHost.isNotEmpty) {
+      return _envHost;
+    }
+    return defaultHost;
   }
 
   static String get baseUrl {
@@ -30,10 +51,25 @@ class ApiConfig {
       return _envBaseUrl;
     }
 
-    final host = _envHost.isNotEmpty ? _envHost : defaultHost;
+    final host = resolvedHost;
     final port = _envPort.isNotEmpty ? _envPort : '$defaultPort';
 
     return 'http://$host:$port';
+  }
+
+  static String get livekitUrl {
+    if (_customLiveKitUrl != null && _customLiveKitUrl!.isNotEmpty) {
+      return _customLiveKitUrl!;
+    }
+
+    if (_envLiveKitUrl.isNotEmpty) {
+      return _envLiveKitUrl;
+    }
+
+    final host = resolvedHost;
+    final isHttps = baseUrl.startsWith('https://');
+    final scheme = isHttps ? 'wss' : 'ws';
+    return '$scheme://$host:$defaultLiveKitPort';
   }
 
   static String wsUrl(String token) {
@@ -74,6 +110,18 @@ class ApiConfig {
   // Group endpoints
   static const String groupsEndpoint = '/api/groups';
   static String groupDetailEndpoint(String groupId) => '/api/groups/$groupId';
+
+  // Call endpoints
+  static const String callsInitiateEndpoint = '/api/calls/initiate';
+  static const String callHistoryEndpoint = '/api/calls/history';
+  static const String activeCallsEndpoint = '/api/calls/active';
+  static String callJoinEndpoint(String callId) => '/api/calls/$callId/join';
+  static String callEndEndpoint(String callId) => '/api/calls/$callId/end';
+  static String callRejectEndpoint(String callId) => '/api/calls/$callId/reject';
+  static String callCancelEndpoint(String callId) => '/api/calls/$callId/cancel';
+  static String callDetailEndpoint(String callId) => '/api/calls/$callId';
+  static const String presenceEndpoint = '/api/presence';
+  static String userPresenceEndpoint(String userId) => '/api/presence/$userId';
 
   static const String healthEndpoint = '/health';
 }

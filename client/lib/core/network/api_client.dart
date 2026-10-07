@@ -131,6 +131,78 @@ class ApiClient {
     }
   }
 
+  Future<dynamic> put(
+    String endpoint, {
+    dynamic body,
+    String? token,
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) async {
+    final uri = _buildUri(endpoint);
+    try {
+      final encodedBody = body != null ? jsonEncode(body) : null;
+      final response = await _client
+          .put(
+            uri,
+            headers: _buildHeaders(token: token, extraHeaders: headers),
+            body: encodedBody,
+          )
+          .timeout(timeout ?? ApiConfig.timeout);
+
+      return _processResponse(response);
+    } on SocketException catch (e) {
+      throw NetworkException(
+        message: 'Không thể kết nối đến máy chủ (${e.message}).',
+      );
+    } on http.ClientException catch (e) {
+      throw NetworkException(
+        message: 'Lỗi kết nối mạng: ${e.message}',
+      );
+    } on TimeoutException {
+      throw const TimeoutException();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'Lỗi không xác định: $e');
+    }
+  }
+
+  Future<dynamic> patch(
+    String endpoint, {
+    dynamic body,
+    String? token,
+    Map<String, String>? headers,
+    Duration? timeout,
+  }) async {
+    final uri = _buildUri(endpoint);
+    try {
+      final encodedBody = body != null ? jsonEncode(body) : null;
+      final response = await _client
+          .patch(
+            uri,
+            headers: _buildHeaders(token: token, extraHeaders: headers),
+            body: encodedBody,
+          )
+          .timeout(timeout ?? ApiConfig.timeout);
+
+      return _processResponse(response);
+    } on SocketException catch (e) {
+      throw NetworkException(
+        message: 'Không thể kết nối đến máy chủ (${e.message}).',
+      );
+    } on http.ClientException catch (e) {
+      throw NetworkException(
+        message: 'Lỗi kết nối mạng: ${e.message}',
+      );
+    } on TimeoutException {
+      throw const TimeoutException();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(message: 'Lỗi không xác định: $e');
+    }
+  }
+
   Future<dynamic> delete(
     String endpoint, {
     dynamic body,

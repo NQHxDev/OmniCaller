@@ -33,6 +33,27 @@ services:
          timeout: 3s
          retries: 5
 
+   livekit:
+      image: livekit/livekit-server:latest
+      container_name: omni-caller-livekit
+      restart: unless-stopped
+      command: --config /etc/livekit.yaml
+      ports:
+         - '7880:7880'  # HTTP/WebSocket
+         - '7881:7881'  # TURN/UDP
+         - '7882:7882'  # TURN/TLS
+         - '50000-50200:50000-50200/udp'  # RTC/UDP
+      volumes:
+         - ./livekit.yaml:/etc/livekit.yaml
+      environment:
+         LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+         LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      healthcheck:
+         test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:7880']
+         interval: 10s
+         timeout: 5s
+         retries: 3
+
 volumes:
    postgres_data:
    redis_data:

@@ -38,6 +38,7 @@ dependencies:
   http: ^1.6.0
   flutter_secure_storage: ^11.2.0
   livekit_client: ^2.13.0
+  permission_handler: ^13.0.2
 
 dev_dependencies:
   flutter_test:

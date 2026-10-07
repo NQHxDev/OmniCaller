@@ -4,16 +4,21 @@ import 'core/auth/auth_scope.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/theme/theme_scope.dart';
 import 'features/auth/presentation/pages/login_page.dart';
+import 'features/calls/presentation/controllers/call_controller.dart';
+import 'features/calls/presentation/controllers/call_signaling_listener.dart';
+import 'features/chat/data/services/chat_websocket_service.dart';
 import 'features/home/presentation/pages/home_page.dart';
 
 class App extends StatefulWidget {
   final AuthController? authController;
   final ThemeController? themeController;
+  final CallController? callController;
 
   const App({
     super.key,
     this.authController,
     this.themeController,
+    this.callController,
   });
 
   @override
@@ -25,6 +30,9 @@ class _AppState extends State<App> {
   late final bool _isInternalAuthController;
   late final ThemeController _themeController;
   late final bool _isInternalThemeController;
+  late final CallController _callController;
+  late final bool _isInternalCallController;
+  CallSignalingListener? _callSignalingListener;
 
   @override
   void initState() {
@@ -45,15 +53,47 @@ class _AppState extends State<App> {
       _themeController = ThemeController();
       _isInternalThemeController = true;
     }
+
+    if (widget.callController != null) {
+      _callController = widget.callController!;
+      _isInternalCallController = false;
+    } else {
+      _callController = CallController();
+      _isInternalCallController = true;
+    }
+
+    _callSignalingListener = CallSignalingListener(
+      callController: _callController,
+    );
+
+    _authController.addListener(_syncAuthWithCall);
+  }
+
+  void _syncAuthWithCall() {
+    if (_authController.isAuthenticated &&
+        _authController.accessToken != null &&
+        _authController.currentUser != null) {
+      _callController.updateAuth(
+        token: _authController.accessToken!,
+        currentUserId: _authController.currentUser!.id,
+      );
+      // Connect WebSocket if not yet connected
+      ChatWebSocketService().connect(token: _authController.accessToken!);
+    }
   }
 
   @override
   void dispose() {
+    _authController.removeListener(_syncAuthWithCall);
+    _callSignalingListener?.dispose();
     if (_isInternalAuthController) {
       _authController.dispose();
     }
     if (_isInternalThemeController) {
       _themeController.dispose();
+    }
+    if (_isInternalCallController) {
+      _callController.dispose();
     }
     super.dispose();
   }
@@ -68,6 +108,7 @@ class _AppState extends State<App> {
           listenable: Listenable.merge([_authController, _themeController]),
           builder: (context, _) {
             return MaterialApp(
+              navigatorKey: CallSignalingListener.navigatorKey,
               title: 'OmniCaller',
               debugShowCheckedModeBanner: false,
               theme: ThemeData(

@@ -29,5 +29,6 @@
       "**/node_modules/**": true
    },
    "java.compile.nullAnalysis.mode": "automatic",
-   "cSpell.words": ["hugeicons", "ILIKE"]
+   "cSpell.words": ["cupertino", "devkey", "hugeicons", "ILIKE", "LIVEKIT", "omnicaller"],
+   "java.configuration.updateBuildConfiguration": "interactive"
 }

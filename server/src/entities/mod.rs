@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
 pub mod account;
+pub mod call;
+pub mod call_participant;
 pub mod conversation;
 pub mod conversation_member;
 pub mod friendship;
@@ -8,3 +10,4 @@ pub mod group_invite;
 pub mod message;
 pub mod message_attachment;
 pub mod user;
+pub mod user_presence;

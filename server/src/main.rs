@@ -12,12 +12,13 @@ mod utils;
 use axum::{
    extract::State,
    middleware,
-   routing::{delete, get, post},
+   routing::{delete, get, post, put},
    Json, Router,
 };
 use config::Config;
 use dashmap::DashMap;
 use handlers::auth_handler::AuthHandler;
+use handlers::call_handler::{self, CallState};
 use handlers::friend_handler::FriendHandler;
 use handlers::group_handler::GroupHandler;
 use handlers::message_handler::MessageHandler;
@@ -33,6 +34,7 @@ use sea_orm::DatabaseConnection;
 use sea_orm_migration::prelude::*;
 use serde::{Deserialize, Serialize};
 use services::auth_service::AuthService;
+use services::call_service::CallService;
 use services::friend_service::FriendService;
 use services::group_service::GroupService;
 use services::message_service::MessageService;
@@ -107,6 +109,7 @@ async fn main() -> anyhow::Result<()> {
    let friend_service = FriendService::new(friend_repo.clone(), user_repo.clone());
    let message_service = MessageService::new(conversation_repo.clone(), message_repo, user_repo.clone());
    let group_service = GroupService::new(conversation_repo.clone(), friend_repo.clone());
+   let call_service = CallService::new(db.clone());
 
    // Initialize handlers
    let auth_handler = AuthHandler::new(auth_service);
@@ -117,6 +120,12 @@ async fn main() -> anyhow::Result<()> {
 
    // WebSocket connection manager
    let connections: ConnectionManager = Arc::new(DashMap::new());
+
+   let call_state = CallState {
+      call_service,
+      jwt_config: jwt_config.clone(),
+      connections: connections.clone(),
+   };
    let ws_state = WebSocketState {
       jwt_config: jwt_config.clone(),
       message_service: message_service.clone(),
@@ -135,6 +144,7 @@ async fn main() -> anyhow::Result<()> {
    let auth_state_friend = AuthState { jwt_config: jwt_config.clone() };
    let auth_state_message = AuthState { jwt_config: jwt_config.clone() };
    let auth_state_group = AuthState { jwt_config: jwt_config.clone() };
+   let auth_state_call = AuthState { jwt_config: jwt_config.clone() };
 
    // Build public auth routes
    let public_auth_routes = Router::new()
@@ -236,6 +246,33 @@ async fn main() -> anyhow::Result<()> {
          },
       ));
 
+   // Build call routes (all require authentication)
+   let call_routes = Router::new()
+      .route("/initiate", post(call_handler::initiate_call))
+      .route("/:id/join", post(call_handler::join_call))
+      .route("/:id/end", post(call_handler::end_call))
+      .route("/:id/reject", post(call_handler::reject_call))
+      .route("/:id/cancel", post(call_handler::cancel_call))
+      .route("/history", get(call_handler::get_call_history))
+      .route("/active", get(call_handler::get_active_calls))
+      .route("/:id", get(call_handler::get_call))
+      .with_state(call_state.clone())
+      .layer(middleware::from_fn(
+         move |mut req: axum::extract::Request, next: axum::middleware::Next| {
+            let auth_state = auth_state_call.clone();
+            async move {
+               req.extensions_mut().insert(auth_state);
+               next.run(req).await
+            }
+         },
+      ));
+
+   // Build presence routes (all require authentication)
+   let presence_routes = Router::new()
+      .route("/", put(call_handler::update_presence))
+      .route("/:user_id", get(call_handler::get_presence))
+      .with_state(call_state);
+
    // WebSocket route (separate router with its own state)
    let ws_router = Router::new().route("/ws", get(websocket_handler)).with_state(ws_state);
 
@@ -248,6 +285,8 @@ async fn main() -> anyhow::Result<()> {
       .nest("/api/users", user_routes)
       .nest("/api/friends", friend_routes)
       .nest("/api/groups", group_routes)
+      .nest("/api/calls", call_routes)
+      .nest("/api/presence", presence_routes)
       .nest("/api", message_routes)
       .with_state(state)
       .merge(ws_router)

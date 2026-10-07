@@ -1,3 +1,4 @@
+import 'package:client/features/calls/data/models/call_event_model.dart';
 import 'chat_models.dart';
 
 abstract class WsClientEvent {
@@ -99,6 +100,36 @@ abstract class WsServerEvent {
           conversationId: json['conversation_id'] as String? ?? '',
           userId: json['user_id'] as String? ?? '',
         );
+      case 'incoming_call':
+      case 'IncomingCall':
+        return WsIncomingCallServerEvent(
+          event: WsIncomingCallEvent.fromJson(json),
+        );
+      case 'call_status_update':
+      case 'CallStatusUpdate':
+        return WsCallStatusUpdateServerEvent(
+          event: WsCallStatusUpdateEvent.fromJson(json),
+        );
+      case 'participant_joined':
+      case 'ParticipantJoined':
+        return WsParticipantJoinedServerEvent(
+          event: WsParticipantJoinedEvent.fromJson(json),
+        );
+      case 'participant_left':
+      case 'ParticipantLeft':
+        return WsParticipantLeftServerEvent(
+          event: WsParticipantLeftEvent.fromJson(json),
+        );
+      case 'call_ended':
+      case 'CallEnded':
+        return WsCallEndedServerEvent(
+          event: WsCallEndedEvent.fromJson(json),
+        );
+      case 'presence_update':
+      case 'PresenceUpdate':
+        return WsPresenceUpdateServerEvent(
+          event: WsPresenceUpdateEvent.fromJson(json),
+        );
       case 'error':
         return WsErrorEvent(message: json['message'] as String? ?? 'Unknown error');
       default:
@@ -138,6 +169,36 @@ class WsUserTypingStopEvent extends WsServerEvent {
   final String conversationId;
   final String userId;
   WsUserTypingStopEvent({required this.conversationId, required this.userId});
+}
+
+class WsIncomingCallServerEvent extends WsServerEvent {
+  final WsIncomingCallEvent event;
+  WsIncomingCallServerEvent({required this.event});
+}
+
+class WsCallStatusUpdateServerEvent extends WsServerEvent {
+  final WsCallStatusUpdateEvent event;
+  WsCallStatusUpdateServerEvent({required this.event});
+}
+
+class WsParticipantJoinedServerEvent extends WsServerEvent {
+  final WsParticipantJoinedEvent event;
+  WsParticipantJoinedServerEvent({required this.event});
+}
+
+class WsParticipantLeftServerEvent extends WsServerEvent {
+  final WsParticipantLeftEvent event;
+  WsParticipantLeftServerEvent({required this.event});
+}
+
+class WsCallEndedServerEvent extends WsServerEvent {
+  final WsCallEndedEvent event;
+  WsCallEndedServerEvent({required this.event});
+}
+
+class WsPresenceUpdateServerEvent extends WsServerEvent {
+  final WsPresenceUpdateEvent event;
+  WsPresenceUpdateServerEvent({required this.event});
 }
 
 class WsErrorEvent extends WsServerEvent {
