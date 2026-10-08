@@ -4,6 +4,7 @@ import 'package:livekit_client/livekit_client.dart';
 import '../controllers/call_controller.dart';
 import '../widgets/call_controls_bar.dart';
 import '../widgets/call_timer_widget.dart';
+import '../widgets/group_voice_participant_tile.dart';
 import '../widgets/speaking_avatar_widget.dart';
 import '../widgets/video_track_renderer.dart';
 
@@ -86,6 +87,13 @@ class _ActiveCallPageState extends State<ActiveCallPage> {
   }
 
   Widget _buildVoiceCallLayout() {
+    if (widget.controller.isGroupCall) {
+      return _buildGroupVoiceCallLayout();
+    }
+    return _buildDirectVoiceCallLayout();
+  }
+
+  Widget _buildDirectVoiceCallLayout() {
     final partyName = widget.controller.otherPartyName ?? 'Caller';
 
     return Container(
@@ -113,9 +121,9 @@ class _ActiveCallPageState extends State<ActiveCallPage> {
                 const SizedBox(height: 12),
                 CallTimerWidget(duration: widget.controller.formattedDuration),
                 const SizedBox(height: 8),
-                Text(
-                  widget.controller.isGroupCall ? 'Group Voice Call' : 'Voice Call',
-                  style: const TextStyle(
+                const Text(
+                  'Voice Call',
+                  style: TextStyle(
                     color: Colors.white60,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -190,6 +198,179 @@ class _ActiveCallPageState extends State<ActiveCallPage> {
     );
   }
 
+  Widget _buildGroupVoiceCallLayout() {
+    final groupTitle = widget.controller.otherPartyName ?? 'Cuộc gọi nhóm';
+    final room = widget.controller.room;
+    final remoteParticipants = room?.remoteParticipants.values.toList() ?? [];
+    final totalCount = remoteParticipants.length + 1;
+
+    final localParticipant = room?.localParticipant;
+    final localSpeaking = localParticipant?.isSpeaking ?? false;
+    final localMuted = widget.controller.isMicMuted;
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF18202F),
+            Color(0xFF0C1018),
+          ],
+        ),
+      ),
+      child: Column(
+        children: [
+          // Top Header Bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                CallTimerWidget(duration: widget.controller.formattedDuration),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const HugeIcon(
+                        icon: HugeIcons.strokeRoundedUserGroup,
+                        color: Color(0xFF4CAF50),
+                        size: 15,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$totalCount thành viên',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Group Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Text(
+              groupTitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Participants Grid View
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: remoteParticipants.isEmpty
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Local user card
+                        SizedBox(
+                          width: 180,
+                          height: 190,
+                          child: GroupVoiceParticipantTile(
+                            name: 'Bạn',
+                            isSpeaking: localSpeaking,
+                            isMuted: localMuted,
+                            isLocal: true,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const CircularProgressIndicator(
+                          color: Color(0xFF4CAF50),
+                          strokeWidth: 2.5,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Đang đợi thành viên khác tham gia...',
+                          style: TextStyle(
+                            color: Colors.white60,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    )
+                  : GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: totalCount > 4 ? 3 : 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: totalCount > 4 ? 0.82 : 0.95,
+                      ),
+                      itemCount: totalCount,
+                      itemBuilder: (context, index) {
+                        // Index 0: Local Participant
+                        if (index == 0) {
+                          return GroupVoiceParticipantTile(
+                            name: 'Bạn',
+                            isSpeaking: localSpeaking,
+                            isMuted: localMuted,
+                            isLocal: true,
+                          );
+                        }
+
+                        // Index 1+: Remote Participants
+                        final p = remoteParticipants[index - 1];
+                        final pName = p.name.isNotEmpty
+                            ? p.name
+                            : (widget.controller.otherPartyName ?? p.identity);
+                        final pMuted = p.audioTrackPublications.any((t) => t.muted) ||
+                            p.audioTrackPublications.isEmpty;
+
+                        return GroupVoiceParticipantTile(
+                          name: pName,
+                          isSpeaking: p.isSpeaking,
+                          isMuted: pMuted,
+                          isLocal: false,
+                        );
+                      },
+                    ),
+            ),
+          ),
+
+          // Controls Bar
+          Padding(
+            padding: const EdgeInsets.only(bottom: 24, top: 12),
+            child: Center(
+              child: CallControlsBar(
+                isMicMuted: widget.controller.isMicMuted,
+                isCameraOff: widget.controller.isCameraOff,
+                isSpeakerphoneOn: widget.controller.isSpeakerphoneOn,
+                isVideoCall: false,
+                onToggleMic: () => widget.controller.toggleMicrophone(),
+                onToggleSpeaker: () => widget.controller.toggleSpeakerphone(),
+                onEndCall: () => widget.controller.endCall(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildVideoCallLayout() {
     final room = widget.controller.room;
     final remoteParticipants = room?.remoteParticipants.values.toList() ?? [];
@@ -235,10 +416,11 @@ class _ActiveCallPageState extends State<ActiveCallPage> {
               ),
               child: VideoTrackRendererWidget(
                 track: localVideoTrack,
-                participantName: 'You',
+                participantName: 'Bạn (You)',
                 isMirror: widget.controller.isFrontCamera,
                 isVideoMuted: widget.controller.isCameraOff,
                 isAudioMuted: widget.controller.isMicMuted,
+                isSpeaking: room?.localParticipant?.isSpeaking ?? false,
               ),
             ),
           ),
@@ -348,6 +530,7 @@ class _ActiveCallPageState extends State<ActiveCallPage> {
         participantName: name,
         isVideoMuted: videoTrack == null || participant.videoTrackPublications.any((p) => p.muted),
         isAudioMuted: participant.audioTrackPublications.any((p) => p.muted),
+        isSpeaking: participant.isSpeaking,
         fit: VideoViewFit.cover,
       ),
     );
@@ -377,6 +560,7 @@ class _ActiveCallPageState extends State<ActiveCallPage> {
             participantName: name,
             isVideoMuted: videoTrack == null || participant.videoTrackPublications.any((p) => p.muted),
             isAudioMuted: participant.audioTrackPublications.any((p) => p.muted),
+            isSpeaking: participant.isSpeaking,
             fit: VideoViewFit.cover,
           );
         },

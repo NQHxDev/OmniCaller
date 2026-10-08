@@ -9,6 +9,7 @@ import 'package:client/features/calls/presentation/pages/incoming_call_page.dart
 import 'package:client/features/calls/presentation/pages/outgoing_call_page.dart';
 import 'package:client/features/calls/presentation/widgets/call_controls_bar.dart';
 import 'package:client/features/calls/presentation/widgets/call_timer_widget.dart';
+import 'package:client/features/calls/presentation/widgets/group_voice_participant_tile.dart';
 import 'package:client/features/calls/presentation/widgets/speaking_avatar_widget.dart';
 import 'call_controller_test.dart';
 
@@ -90,6 +91,40 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('A'), findsOneWidget);
+    });
+
+    testWidgets('GroupVoiceParticipantTile displays participant name, mute and speaking badge', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: GroupVoiceParticipantTile(
+              name: 'David',
+              isSpeaking: true,
+              isMuted: false,
+              isLocal: false,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('David'), findsOneWidget);
+      expect(find.text('Đang nói'), findsOneWidget);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: GroupVoiceParticipantTile(
+              name: 'Emma',
+              isSpeaking: false,
+              isMuted: true,
+              isLocal: false,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Emma'), findsOneWidget);
+      expect(find.text('Đã tắt mic'), findsOneWidget);
     });
 
     testWidgets('CallControlsBar triggers callbacks on tap', (tester) async {
@@ -203,7 +238,7 @@ void main() {
       controller.dispose();
     });
 
-    testWidgets('ActiveCallPage renders voice call UI and updates speaking ripples', (tester) async {
+    testWidgets('ActiveCallPage renders direct voice call UI and updates speaking ripples', (tester) async {
       final mockApi = MockCallApiService();
       final mockLivekit = MockLiveKitService();
       final controller = CallController(
@@ -246,6 +281,43 @@ void main() {
 
       expect(controller.isRemoteSpeaking, isTrue);
       expect(find.text('Đang nói...'), findsOneWidget);
+
+      controller.dispose();
+    });
+
+    testWidgets('ActiveCallPage renders group voice call UI with participant layout', (tester) async {
+      final mockApi = MockCallApiService();
+      final mockLivekit = MockLiveKitService();
+      final controller = CallController(
+        apiService: mockApi,
+        livekitService: mockLivekit,
+        token: 'test-token',
+        currentUserId: 'my-id',
+      );
+
+      controller.handleIncomingCall(
+        const WsIncomingCallEvent(
+          callId: 'call-group-1',
+          roomName: 'room-group-1',
+          callType: CallType.voice,
+          mode: CallMode.group,
+          initiatedBy: 'user-bob',
+          initiatorName: 'Nhóm Phát Triển Dự Án',
+        ),
+      );
+      await controller.acceptCall();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ActiveCallPage(controller: controller),
+        ),
+      );
+
+      expect(find.text('Nhóm Phát Triển Dự Án'), findsOneWidget);
+      expect(find.text('1 thành viên'), findsOneWidget);
+      expect(find.text('Bạn (Bạn)'), findsOneWidget);
+      expect(find.byType(CallTimerWidget), findsOneWidget);
+      expect(find.byType(GroupVoiceParticipantTile), findsOneWidget);
 
       controller.dispose();
     });

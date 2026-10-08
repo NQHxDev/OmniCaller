@@ -1,0 +1,41 @@
+# Cloudflare Tunnel Configuration Example
+# Copy this file to cloudflared-config.yml and update with your values
+
+# Your tunnel ID (get from: cloudflared tunnel list)
+tunnel: YOUR_TUNNEL_ID_HERE
+
+# Path to credentials file
+credentials-file: /etc/cloudflared/credentials.json
+
+# Ingress rules - routes traffic from Cloudflare to your services
+ingress:
+   # Route 1: API Server
+   - hostname: api.your-domain.com
+     service: http://server:3000
+     originRequest:
+        noTLSVerify: false
+        connectTimeout: 30s
+        keepAliveTimeout: 90s
+        keepAliveConnections: 100
+
+   # Route 2: LiveKit WebSocket
+   - hostname: livekit.your-domain.com
+     service: http://livekit:7880
+     originRequest:
+        noTLSVerify: false
+        connectTimeout: 30s
+        keepAliveTimeout: 90s
+        keepAliveConnections: 100
+
+   # Route 3: Direct server access (optional)
+   - hostname: your-domain.com
+     service: http://server:3000
+
+   # Catch-all rule (required - must be last)
+   - service: http_status:404
+
+# Logging
+loglevel: info
+
+# Metrics (optional - for monitoring)
+metrics: 0.0.0.0:9090

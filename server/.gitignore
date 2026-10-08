@@ -20,3 +20,16 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Docker
+Dockerfile.prod
+docker-compose.override.yml
+
+# Cloudflare
+cloudflared-config.yml
+cloudflared-credentials.json
+*.json.bak
+
+# Backups
+backup_*.sql
+*.backup

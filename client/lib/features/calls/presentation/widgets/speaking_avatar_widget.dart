@@ -17,7 +17,7 @@ class SoundwaveRipplePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final maxExpansion = 42.0;
+    final maxExpansion = baseRadius * 0.45;
 
     for (int i = 0; i < waveCount; i++) {
       final progress = (animationValue + (i / waveCount)) % 1.0;
@@ -27,7 +27,7 @@ class SoundwaveRipplePainter extends CustomPainter {
       final paint = Paint()
         ..color = color.withValues(alpha: opacity)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = (3.5 * (1.0 - (progress * 0.6))).clamp(1.0, 3.5);
+        ..strokeWidth = (3.0 * (1.0 - (progress * 0.6))).clamp(1.0, 3.0);
 
       canvas.drawCircle(center, currentRadius, paint);
     }
@@ -106,7 +106,8 @@ class _SpeakingAvatarWidgetState extends State<SpeakingAvatarWidget>
         ? widget.name.trim()[0].toUpperCase()
         : '?';
 
-    final totalSize = (widget.radius + 48) * 2;
+    final wavePadding = (widget.radius * 0.4).clamp(10.0, 32.0);
+    final totalSize = (widget.radius + wavePadding) * 2;
 
     return SizedBox(
       width: totalSize,
@@ -124,7 +125,7 @@ class _SpeakingAvatarWidgetState extends State<SpeakingAvatarWidget>
                   painter: SoundwaveRipplePainter(
                     animationValue: _controller.value,
                     color: widget.activeColor,
-                    baseRadius: widget.radius + 6,
+                    baseRadius: widget.radius + 4,
                     waveCount: 3,
                   ),
                 );
@@ -134,21 +135,21 @@ class _SpeakingAvatarWidgetState extends State<SpeakingAvatarWidget>
           // Glowing Outer Border Ring
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
                 color: widget.isSpeaking
                     ? widget.activeColor
                     : widget.activeColor.withValues(alpha: 0.35),
-                width: widget.isSpeaking ? 4.5 : 3.5,
+                width: widget.isSpeaking ? 3.5 : 2.5,
               ),
               boxShadow: widget.isSpeaking
                   ? [
                       BoxShadow(
                         color: widget.activeColor.withValues(alpha: 0.45),
-                        blurRadius: 20,
-                        spreadRadius: 4,
+                        blurRadius: 16,
+                        spreadRadius: 3,
                       ),
                     ]
                   : [],

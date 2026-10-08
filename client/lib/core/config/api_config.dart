@@ -1,18 +1,22 @@
 
 class ApiConfig {
-  /// Default LAN IP & Port for connecting from real physical devices
+  /// Default LAN IP & Port for connecting from real physical devices (Local Development)
   static const String defaultHost = '192.168.1.162';
   static const String emulatorHost = '10.0.2.2';
   static const int defaultPort = 3000;
   static const int defaultLiveKitPort = 7880;
 
-  /// Build-time environment variables:
-  /// --dart-define=API_BASE_URL=http://192.168.1.162:3000
-  /// or --dart-define=API_HOST=192.168.1.162 --dart-define=API_PORT=3000
+  /// Production Cloudflare URLs (set via --dart-define)
+  /// Example: flutter run --dart-define=API_BASE_URL=https://api.your-domain.com
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
   static const String _envLiveKitUrl = String.fromEnvironment('LIVEKIT_URL');
+  
+  /// For backward compatibility
   static const String _envHost = String.fromEnvironment('API_HOST');
   static const String _envPort = String.fromEnvironment('API_PORT');
+  
+  /// Environment mode (local, staging, production)
+  static const String _envMode = String.fromEnvironment('ENV_MODE', defaultValue: 'local');
 
   /// Dynamic runtime override support
   static String? _customBaseUrl;
@@ -42,41 +46,62 @@ class ApiConfig {
     return defaultHost;
   }
 
+  /// Get base URL with Cloudflare support
   static String get baseUrl {
+    // 1. Runtime override (highest priority)
     if (_customBaseUrl != null && _customBaseUrl!.isNotEmpty) {
       return _customBaseUrl!;
     }
 
+    // 2. Environment variable (Cloudflare URL)
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl;
     }
 
+    // 3. Local development fallback
     final host = resolvedHost;
     final port = _envPort.isNotEmpty ? _envPort : '$defaultPort';
-
     return 'http://$host:$port';
   }
 
+  /// Get LiveKit URL with Cloudflare support
   static String get livekitUrl {
+    // 1. Runtime override (highest priority)
     if (_customLiveKitUrl != null && _customLiveKitUrl!.isNotEmpty) {
       return _customLiveKitUrl!;
     }
 
+    // 2. Environment variable (Cloudflare LiveKit URL)
     if (_envLiveKitUrl.isNotEmpty) {
       return _envLiveKitUrl;
     }
 
+    // 3. Local development fallback
     final host = resolvedHost;
     final isHttps = baseUrl.startsWith('https://');
     final scheme = isHttps ? 'wss' : 'ws';
+    
+    // If using Cloudflare and no custom LiveKit URL, assume it's on subdomain
+    if (baseUrl.startsWith('https://api.')) {
+      final domain = baseUrl.replaceFirst('https://api.', 'wss://livekit.');
+      return domain;
+    }
+    
     return '$scheme://$host:$defaultLiveKitPort';
   }
 
+  /// WebSocket URL for real-time communication
   static String wsUrl(String token) {
     final httpBase = baseUrl;
     final wsBase = httpBase.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://');
     return '$wsBase/ws?token=$token';
   }
+
+  /// Check if running in production mode
+  static bool get isProduction => _envMode == 'production' || baseUrl.startsWith('https://');
+  
+  /// Check if running in local mode
+  static bool get isLocal => _envMode == 'local' && !baseUrl.startsWith('https://');
 
   static const Duration timeout = Duration(seconds: 15);
 
@@ -124,4 +149,17 @@ class ApiConfig {
   static String userPresenceEndpoint(String userId) => '/api/presence/$userId';
 
   static const String healthEndpoint = '/health';
+  
+  /// Print current configuration (for debugging)
+  static void printConfig() {
+    print('╔═══════════════════════════════════════════════════════════╗');
+    print('║  API Configuration                                        ║');
+    print('╠═══════════════════════════════════════════════════════════╣');
+    print('  Mode:          $_envMode');
+    print('  Base URL:      $baseUrl');
+    print('  LiveKit URL:   $livekitUrl');
+    print('  Is Production: $isProduction');
+    print('  Is Local:      $isLocal');
+    print('╚═══════════════════════════════════════════════════════════╝');
+  }
 }

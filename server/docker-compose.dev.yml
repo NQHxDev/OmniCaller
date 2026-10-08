@@ -1,0 +1,54 @@
+# Docker Compose for Development
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+name: omni-caller-dev
+
+services:
+   server:
+      build:
+         context: .
+         dockerfile: Dockerfile
+         target: builder  # Use builder stage for faster iteration
+      volumes:
+         - ./src:/app/src:ro
+         - ./Cargo.toml:/app/Cargo.toml:ro
+         - ./Cargo.lock:/app/Cargo.lock:ro
+         - cargo-cache:/usr/local/cargo/registry
+         - target-cache:/app/target
+      environment:
+         APP_ENV: development
+         LOG_LEVEL: debug
+         RUST_BACKTRACE: 1
+      command: cargo run
+
+   postgres:
+      ports:
+         - '5432:5432'  # Expose for local tools
+
+   redis:
+      ports:
+         - '6379:6379'  # Expose for local tools
+
+   livekit:
+      ports:
+         - '7880:7880'
+         - '7881:7881'
+         - '7882:7882'
+
+   # Adminer for database management
+   adminer:
+      image: adminer:latest
+      container_name: omni-caller-adminer
+      restart: unless-stopped
+      ports:
+         - '8080:8080'
+      environment:
+         ADMINER_DEFAULT_SERVER: postgres
+      networks:
+         - omni-network
+      depends_on:
+         - postgres
+
+volumes:
+   cargo-cache:
+   target-cache:
